@@ -261,7 +261,7 @@ function ensureCss() {
 			'id': 'bplus-status-css',
 			'rel': 'stylesheet',
 			'type': 'text/css',
-			'href': L.resource('bandix_plus/status.css', '?v=11')
+			'href': L.resource('bandix_plus/status.css', '?v=23')
 		}));
 	}
 	ensureLayoutCss();
@@ -475,22 +475,42 @@ return view.extend({
 		}, this));
 	},
 
-	overviewHeroSpeed: function (title, totalBpsOrBytes, v4v, v6v, bytesMode, dir) {
+	overviewHeroSpeed: function (title, totalBpsOrBytes, v4v, v6v, bytesMode, dir, cumTotalBytes, cumV4Bytes, cumV6Bytes) {
 		var totalS = bytesMode ? formatBytes(totalBpsOrBytes) : formatBpsAsByteRate(totalBpsOrBytes);
 		var v4S = bytesMode ? formatBytes(v4v) : formatBpsAsByteRate(v4v);
 		var v6S = bytesMode ? formatBytes(v6v) : formatBpsAsByteRate(v6v);
 		var cls = 'overview-hero-speed overview-hero-speed--' + dir + (bytesMode ? ' overview-hero-speed--bytes' : '');
-		return E('div', { 'class': cls }, [
-			E('div', { 'class': 'overview-hero-speed__headrow' }, [
-				E('span', { 'class': 'overview-hero-speed__title' }, [ title ]),
-				E('div', { 'class': 'overview-hero-speed__total-wrap' }, [
-					E('span', { 'class': 'overview-hero-speed__total' }, [ totalS ])
+		var wrapBits = [
+			E('span', { 'class': 'overview-hero-speed__total' }, [ totalS ])
+		];
+		if (!bytesMode)
+			wrapBits.push(E('span', { 'class': 'overview-hero-speed__cum' }, [ '(' + formatBytes(cumTotalBytes) + ')' ]));
+		var splitBits;
+		if (!bytesMode) {
+			splitBits = [
+				E('div', { 'class': 'overview-hero-speed__split-row' }, [
+					E('span', { 'class': 'overview-hero-speed__split-rate' }, [ 'IPv4 ' + v4S ]),
+					E('span', { 'class': 'overview-hero-speed__cum' }, [ '(' + formatBytes(cumV4Bytes) + ')' ])
+				]),
+				E('div', { 'class': 'overview-hero-speed__split-row' }, [
+					E('span', { 'class': 'overview-hero-speed__split-rate' }, [ 'IPv6 ' + v6S ]),
+					E('span', { 'class': 'overview-hero-speed__cum' }, [ '(' + formatBytes(cumV6Bytes) + ')' ])
 				])
+			];
+		} else {
+			splitBits = [
+				E('span', { 'class': 'overview-hero-speed__split-item' }, [ 'IPv4 ' + v4S ]),
+				E('span', { 'class': 'overview-hero-speed__split-item' }, [ 'IPv6 ' + v6S ])
+			];
+		}
+		return E('div', { 'class': cls }, [
+			E('div', { 'class': 'overview-hero-speed__title-row' }, [
+				E('span', { 'class': 'overview-hero-speed__title' }, [ title ])
 			]),
-			E('div', { 'class': 'overview-hero-speed__split' }, [
-				E('span', { 'class': 'overview-hero-speed__split-item' }, [ 'v4 ' + v4S ]),
-				E('span', { 'class': 'overview-hero-speed__split-item' }, [ 'v6 ' + v6S ])
-			])
+			E('div', { 'class': 'overview-hero-speed__rates-row' }, [
+				E('div', { 'class': 'overview-hero-speed__total-wrap' }, wrapBits)
+			]),
+			E('div', { 'class': 'overview-hero-speed__split' }, splitBits)
 		]);
 	},
 
@@ -515,24 +535,18 @@ return view.extend({
 			var cumUp = asNum(cumulative.up_v4_bytes) + asNum(cumulative.up_v6_bytes);
 			var cumDown = asNum(cumulative.down_v4_bytes) + asNum(cumulative.down_v6_bytes);
 			var zoneStr = item.zone != null ? String(item.zone) : '';
-			var headBits = [ E('h3', { 'class': 'overview-card__title' }, [ String(item.ifname != null ? item.ifname : '') ]) ];
+			var headBits = [ E('div', { 'class': 'overview-card__title' }, [ String(item.ifname != null ? item.ifname : '') || '—' ]) ];
 			if (zoneStr) {
 				headBits.push(E('div', { 'class': 'overview-card__badges' }, [
 					E('span', { 'class': 'overview-pill overview-pill--zone' }, [ zoneStr ])
 				]));
 			}
 			var card = E('article', { 'class': 'overview-card' }, [
-				E('header', { 'class': 'overview-card__head' }, headBits),
+				E('div', { 'class': 'overview-card__head' }, headBits),
 				E('section', { 'class': 'overview-card__block overview-card__block--rate' }, [
 					E('div', { 'class': 'overview-hero-pair' }, [
-						this.overviewHeroSpeed('总上传', upBps, metrics.up_v4_bps, metrics.up_v6_bps, false, 'up'),
-						this.overviewHeroSpeed('总下载', downBps, metrics.down_v4_bps, metrics.down_v6_bps, false, 'down')
-					])
-				]),
-				E('section', { 'class': 'overview-card__block overview-card__block--cumulative' }, [
-					E('div', { 'class': 'overview-hero-pair' }, [
-						this.overviewHeroSpeed('总上传', cumUp, cumulative.up_v4_bytes, cumulative.up_v6_bytes, true, 'up'),
-						this.overviewHeroSpeed('总下载', cumDown, cumulative.down_v4_bytes, cumulative.down_v6_bytes, true, 'down')
+						this.overviewHeroSpeed(_('Upload'), upBps, metrics.up_v4_bps, metrics.up_v6_bps, false, 'up', cumUp, cumulative.up_v4_bytes, cumulative.up_v6_bytes),
+						this.overviewHeroSpeed(_('Download'), downBps, metrics.down_v4_bps, metrics.down_v6_bps, false, 'down', cumDown, cumulative.down_v4_bytes, cumulative.down_v6_bytes)
 					])
 				])
 			]);
@@ -1824,7 +1838,7 @@ return view.extend({
 			E('div', { 'class': 'bplus-main' }, [
 				E('section', { 'class': 'bplus-panel' }, [
 					E('div', { 'class': 'bplus-panel-head' }, [
-						E('h2', { 'name': 'content' }, [ '接口总览' ]),
+						E('h2', [ '接口总览' ]),
 						this.el.overviewCount
 					]),
 					this.el.overviewGrid

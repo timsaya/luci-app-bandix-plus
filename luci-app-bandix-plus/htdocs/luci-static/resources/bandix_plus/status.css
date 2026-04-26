@@ -1,7 +1,7 @@
 .bplus-badge {
   border-radius: 6px;
   padding: 5px 12px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   border: 1px solid var(--bplus-border);
   background: var(--bplus-card);
@@ -26,7 +26,7 @@
 
 .bplus-trend-title-row .bplus-panel-title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 600;
 }
 
@@ -41,7 +41,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--bplus-sub);
 }
 
@@ -79,6 +79,7 @@
   --bplus-down-v4: #155e75;
   --bplus-down-v6: #5eead4;
   color: var(--bplus-text);
+  font-size: 16px;
 }
 
 .bplus-page.theme-dark {
@@ -96,6 +97,21 @@
   --bplus-down-v6: #ccfbf1;
 }
 
+/* LuCI / Argon 等主题会给 h2[name=content] 或区块标题加左侧色条，在此页内关闭 */
+.bplus-page h1[name="content"],
+.bplus-page h2[name="content"],
+.bplus-page h3[name="content"],
+.bplus-page .overview-card .overview-card__title,
+.bplus-page .policy-card > h3 {
+  border-left: none !important;
+  border-inline-start: none !important;
+  box-shadow: none !important;
+  padding-left: 0 !important;
+  padding-inline-start: 0 !important;
+  margin-left: 0 !important;
+  margin-inline-start: 0 !important;
+}
+
 .bplus-header {
   display: flex;
   flex-wrap: wrap;
@@ -110,7 +126,7 @@
 }
 
 .bplus-version {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--bplus-sub);
 }
 
@@ -122,7 +138,7 @@
 }
 
 .bplus-toolbar label {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--bplus-sub);
 }
 
@@ -141,7 +157,7 @@
 }
 
 .bplus-card-title {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--bplus-sub);
 }
 
@@ -154,7 +170,7 @@
 
 .bplus-card-sub {
   margin-top: 6px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--bplus-sub);
 }
 
@@ -178,13 +194,13 @@
 .bplus-tip {
   margin: 0 0 10px;
   color: var(--bplus-sub);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .bplus-form-help {
   margin: 6px 0 10px;
   color: var(--bplus-sub);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .bplus-chart-wrap {
@@ -217,7 +233,7 @@
   background: var(--bplus-bg);
   color: var(--bplus-text);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .bplus-tip-title {
@@ -245,7 +261,7 @@
 }
 
 .bplus-table th {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .bplus-sortable {
@@ -286,7 +302,7 @@
 }
 
 .bplus-subline {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--bplus-sub);
 }
 
@@ -332,7 +348,7 @@
 }
 
 .bplus-stats-query label {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--bplus-sub);
 }
 
@@ -394,14 +410,14 @@
 
 .bplus-page .bplus-topbar .bplus-title-wrap h1 {
   margin: 0;
-  font-size: clamp(1.2rem, 2vw, 1.5rem);
+  font-size: clamp(1.28rem, 2.1vw, 1.58rem);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 
 .bplus-page .bplus-topbar .bplus-title-wrap p {
   margin: 4px 0 0;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--bplus-sub);
 }
 
@@ -422,7 +438,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  font-size: 0.88rem;
+  font-size: 0.94rem;
   color: var(--bplus-sub);
 }
 
@@ -468,7 +484,7 @@
 .bplus-page .bplus-panel-head h2,
 .bplus-page .bplus-panel-head h3 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1.12rem;
   font-weight: 600;
   color: var(--bplus-text);
 }
@@ -493,7 +509,7 @@
   color: var(--bplus-sub);
   border-radius: 999px;
   padding: 4px 10px;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   font-weight: 600;
   border: 1px solid var(--bplus-border);
 }
@@ -509,7 +525,7 @@
 .bplus-page .bplus-inline-form label {
   display: grid;
   gap: 4px;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   color: var(--bplus-sub);
 }
 
@@ -519,13 +535,15 @@
 }
 
 .bplus-page .overview-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
 .bplus-page .overview-state {
-  grid-column: 1 / -1;
+  flex: 1 1 100%;
+  width: 100%;
+  box-sizing: border-box;
   text-align: center;
   font-weight: 600;
   padding: 20px 14px;
@@ -543,15 +561,18 @@
 }
 
 .bplus-page .overview-card {
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--bplus-border);
   border-radius: 14px;
   padding: 12px 14px;
   background: var(--bplus-card);
   display: grid;
   gap: 12px;
-  min-width: 0;
 }
 
+/* 使用 div 而非 header：LuCI 主题常给 <header> 加左侧色条；与 luci-app-bandix .device-card-header 一致 */
 .bplus-page .overview-card__head {
   display: flex;
   align-items: flex-start;
@@ -559,11 +580,16 @@
   gap: 10px 12px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--bplus-border);
+  margin: 0;
+  border-left: none;
+  border-top: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .bplus-page .overview-card__title {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1.12rem;
   font-weight: 600;
   word-break: break-word;
   flex: 1 1 auto;
@@ -584,7 +610,7 @@
   align-items: center;
   padding: 3px 9px;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: 0.84rem;
   font-weight: 600;
   background: var(--bplus-bg);
   border: 1px solid var(--bplus-border);
@@ -597,21 +623,6 @@
 .bplus-page .overview-card__block {
   display: grid;
   gap: 8px;
-}
-
-.bplus-page .overview-card__block--cumulative {
-  padding-top: 12px;
-  margin-top: 2px;
-  border-top: 1px solid var(--bplus-border);
-}
-
-.bplus-page .overview-card__label {
-  margin: 0;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--bplus-sub);
 }
 
 .bplus-page .overview-hero-pair {
@@ -629,9 +640,9 @@
 
 .bplus-page .overview-hero-speed {
   display: grid;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto auto auto;
   align-content: start;
-  gap: 0;
+  gap: 2px 0;
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--bplus-bg);
@@ -639,49 +650,48 @@
   min-width: 0;
 }
 
-.bplus-page .overview-hero-speed__headrow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 8px 10px;
-  min-height: 2.35rem;
-}
-
-.bplus-page .overview-hero-speed--bytes {
-  opacity: 0.98;
+/* 对齐 luci-app-bandix .stats-card-title：次要标题色，非上行/下行大色块 */
+.bplus-page .overview-hero-speed__title-row {
+  width: 100%;
+  margin: 0 0 6px;
 }
 
 .bplus-page .overview-hero-speed__title {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.025em;
   color: var(--bplus-sub);
-  text-transform: uppercase;
-  line-height: 1.2;
+  opacity: 0.88;
   min-width: 0;
 }
 
-.bplus-page .overview-hero-speed--up .overview-hero-speed__title {
-  color: var(--bplus-up);
-}
-
-.bplus-page .overview-hero-speed--down .overview-hero-speed__title {
-  color: var(--bplus-down);
-}
-
-.bplus-page .overview-hero-speed__total-wrap {
+.bplus-page .overview-hero-speed__rates-row {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: baseline;
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 4px;
+}
+
+/* 综合速率左、流量用量（括号累计）右 */
+.bplus-page .overview-hero-speed__total-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
   min-width: 0;
   overflow: hidden;
 }
 
 .bplus-page .overview-hero-speed__total {
-  font-size: clamp(1.05rem, 2.2vw + 0.45rem, 1.38rem);
+  font-size: clamp(1.12rem, 2.35vw + 0.48rem, 1.45rem);
   font-weight: 800;
   line-height: 1.15;
-  text-align: right;
+  text-align: left;
   font-variant-numeric: tabular-nums;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: nowrap;
@@ -700,19 +710,27 @@
   color: var(--bplus-down);
 }
 
-.bplus-page .overview-hero-speed--bytes .overview-hero-speed__total {
-  min-width: 11ch;
+.bplus-page .overview-hero-speed__cum {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--bplus-sub);
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: nowrap;
+  line-height: 1.2;
+  justify-self: end;
+  text-align: right;
 }
 
 .bplus-page .overview-hero-speed__split {
-  margin: 8px 0 0;
-  padding-top: 8px;
-  border-top: 1px solid var(--bplus-border);
+  margin: 4px 0 0;
+  padding-top: 0;
+  border-top: none;
   display: flex;
   flex-direction: column;
   gap: 4px;
   align-items: stretch;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 600;
   line-height: 1.4;
 }
@@ -728,20 +746,24 @@
   padding-left: 0.1em;
 }
 
-.bplus-page .overview-hero-speed--up .overview-hero-speed__split-item:nth-child(1) {
-  color: var(--bplus-up-v4);
+.bplus-page .overview-hero-speed__split-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
-.bplus-page .overview-hero-speed--up .overview-hero-speed__split-item:nth-child(2) {
-  color: var(--bplus-up-v6);
-}
-
-.bplus-page .overview-hero-speed--down .overview-hero-speed__split-item:nth-child(1) {
-  color: var(--bplus-down-v4);
-}
-
-.bplus-page .overview-hero-speed--down .overview-hero-speed__split-item:nth-child(2) {
-  color: var(--bplus-down-v6);
+.bplus-page .overview-hero-speed__split-rate {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  padding-left: 0.1em;
+  color: var(--bplus-text);
 }
 
 .bplus-page .policy-grid {
@@ -761,7 +783,7 @@
 
 .bplus-page .policy-card h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.06rem;
   font-weight: 600;
 }
 
@@ -792,7 +814,7 @@
   display: inline-flex;
   gap: 4px;
   align-items: center;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
 }
 
 .bplus-page .actions-row {
@@ -803,7 +825,7 @@
 
 .bplus-page .chart-hint {
   margin: 8px 0 0;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   color: var(--bplus-sub);
 }
 
@@ -818,7 +840,7 @@
 .bplus-page .bplus-stats-query-wrap label {
   display: grid;
   gap: 4px;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   color: var(--bplus-sub);
 }
 
@@ -844,7 +866,7 @@
 .bplus-page .form-grid .field {
   display: grid;
   gap: 4px;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   color: var(--bplus-sub);
 }
 
@@ -859,7 +881,7 @@
   align-items: center;
   gap: 8px;
   white-space: nowrap;
-  font-size: 0.88rem;
+  font-size: 0.94rem;
   font-weight: 600;
 }
 
