@@ -903,6 +903,20 @@ return view.extend({
 			if (view[i].down > maxV) maxV = view[i].down;
 		}
 
+		ctx.fillStyle = '#8a8a8a';
+		ctx.font = '11px sans-serif';
+		var maxLabelW = 0;
+		for (var twI = 0; twI <= 4; twI++) {
+			var tickV = maxV * (1 - twI / 4);
+			var mw = ctx.measureText(formatRate(tickV)).width;
+			if (mw > maxLabelW) maxLabelW = mw;
+		}
+		pad.l = Math.max(56, Math.ceil(maxLabelW) + 22);
+		var minPlotW = 80;
+		if (pad.l + pad.r + minPlotW > cw) pad.l = Math.max(40, cw - pad.r - minPlotW);
+		pw = cw - pad.l - pad.r;
+		canvas.__trendPadL = pad.l;
+
 		ctx.strokeStyle = 'rgba(130,130,130,0.28)';
 		ctx.lineWidth = 1;
 		for (var gy = 0; gy <= 4; gy++) {
@@ -913,13 +927,11 @@ return view.extend({
 			ctx.stroke();
 		}
 
-		ctx.fillStyle = '#8a8a8a';
-		ctx.font = '11px sans-serif';
 		ctx.textAlign = 'right';
 		for (var ty = 0; ty <= 4; ty++) {
 			var v = maxV * (1 - ty / 4);
 			var y2 = pad.t + (ph * ty / 4) + 4;
-			ctx.fillText(formatRate(v), pad.l - 6, y2);
+			ctx.fillText(formatRate(v), pad.l - 10, y2);
 		}
 
 		function toX(i) {
@@ -979,7 +991,7 @@ return view.extend({
 		if (!canvas || !this.trend.length || !canvas.__viewRange) return;
 		var rect = canvas.getBoundingClientRect();
 		var x = ev.clientX - rect.left;
-		var padL = 40;
+		var padL = typeof canvas.__trendPadL === 'number' ? canvas.__trendPadL : 40;
 		var padR = 16;
 		var usable = rect.width - padL - padR;
 		if (usable <= 0) return;
@@ -1401,7 +1413,6 @@ return view.extend({
 			return;
 		}
 		var pad = { l: 44, r: 16, t: 16, b: 30 };
-		var pw = w - pad.l - pad.r;
 		var ph = h - pad.t - pad.b;
 		var vals = [];
 		var maxV = 1;
@@ -1411,6 +1422,20 @@ return view.extend({
 			if (v > maxV) maxV = v;
 		}
 
+		ctx.fillStyle = '#8a8a8a';
+		ctx.font = '11px sans-serif';
+		var maxLabelW = 0;
+		for (var swI = 0; swI <= 4; swI++) {
+			var tickV = maxV * (1 - swI / 4);
+			var mw = ctx.measureText(formatBytes(tickV)).width;
+			if (mw > maxLabelW) maxLabelW = mw;
+		}
+		pad.l = Math.max(56, Math.ceil(maxLabelW) + 22);
+		var minPlotW = 80;
+		if (pad.l + pad.r + minPlotW > w) pad.l = Math.max(40, w - pad.r - minPlotW);
+		var pw = w - pad.l - pad.r;
+		canvas.__statsPadL = pad.l;
+
 		ctx.strokeStyle = 'rgba(130,130,130,0.28)';
 		for (var gy = 0; gy <= 4; gy++) {
 			var y = pad.t + ph * gy / 4;
@@ -1419,12 +1444,10 @@ return view.extend({
 			ctx.lineTo(w - pad.r, y);
 			ctx.stroke();
 		}
-		ctx.fillStyle = '#8a8a8a';
-		ctx.font = '11px sans-serif';
 		ctx.textAlign = 'right';
 		for (var ty = 0; ty <= 4; ty++) {
 			var value = maxV * (1 - ty / 4);
-			ctx.fillText(formatBytes(value), pad.l - 6, pad.t + ph * ty / 4 + 4);
+			ctx.fillText(formatBytes(value), pad.l - 10, pad.t + ph * ty / 4 + 4);
 		}
 
 		var barW = pw / vals.length;
@@ -1621,13 +1644,6 @@ return view.extend({
 				this.refreshLive(true);
 			}, this));
 		}
-		if (this.el.devicesFilterResetBtn) {
-			this.el.devicesFilterResetBtn.addEventListener('click', L.bind(function () {
-				this.devicesFilterIface = '';
-				if (this.el.devicesIfaceSelect) this.el.devicesIfaceSelect.value = '';
-				this.refreshLive(true);
-			}, this));
-		}
 
 		if (this.el.deviceModeSelect) {
 			this.el.deviceModeSelect.addEventListener('change', L.bind(function () {
@@ -1698,7 +1714,6 @@ return view.extend({
 			E('option', { 'value': 'detailed' }, [ _('Detailed Mode') ])
 		]);
 		this.el.deviceModeSelect.value = this.deviceDisplayMode;
-		this.el.devicesFilterResetBtn = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-neutral' }, [ _('Reset') ]);
 		this.el.devicesCount = E('span', { 'class': 'meta-pill', 'id': 'bplus-devices-count' }, [ _('Online devices') + ': 0 / 0' ]);
 
 		this.el.trendCount = E('span', { 'class': 'meta-pill', 'id': 'bplus-trend-count' }, [ '0 ' + _('entries') ]);
@@ -1863,7 +1878,6 @@ return view.extend({
 						E('label', {}, [ 'traffic_type', this.el.trendTypeSelect ])
 					]),
 					E('div', { 'class': 'bplus-chart-wrap' }, [ this.el.trendCanvas, this.el.trendTooltip ]),
-					E('p', { 'class': 'chart-hint' }, [ _('Y axis: B/s (bps÷8). Wheel zooms; hover for values.') ])
 				]),
 
 				E('section', { 'class': 'bplus-panel' }, [
@@ -1874,8 +1888,7 @@ return view.extend({
 					E('div', { 'class': 'bplus-inline-form' }, [
 						E('label', {}, [ _('Iface filter'), this.el.devicesIfaceSelect ]),
 						E('label', {}, [ _('Period'), this.el.periodSelect ]),
-						E('label', {}, [ _('Display mode'), this.el.deviceModeSelect ]),
-						this.el.devicesFilterResetBtn
+						E('label', {}, [ _('Display mode'), this.el.deviceModeSelect ])
 					]),
 					E('div', { 'class': 'table-wrapper' }, [ E('table', { 'class': 'table bplus-table bplus-table--devices' }, [ this.el.deviceHead, this.el.deviceBody ]) ])
 				]),
