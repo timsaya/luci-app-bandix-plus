@@ -132,6 +132,13 @@ function formatBpsAsByteRate(bps) {
 	return formatRate(asNum(bps) / 8);
 }
 
+/** 设备 last_seen_ms（Unix 毫秒）→ 本地时间字符串；无效为 — */
+function formatDeviceLastSeenMs(ms) {
+	var n = asNum(ms);
+	if (n <= 0) return '—';
+	return new Date(n).toLocaleString();
+}
+
 function compareVal(a, b) {
 	if (a === b) return 0;
 	if (a == null) return -1;
@@ -154,6 +161,41 @@ function deviceFirstIpv4Uint(d) {
 		n = ((n << 8) >>> 0) + o;
 	}
 	return n >>> 0;
+}
+
+/** 设备表：简易=合计一行；详细=合计 + IPv4/IPv6 子行 */
+function deviceTableRateTd(met, upload, detailed) {
+	var v4 = upload ? asNum(met.up_v4_bps) : asNum(met.down_v4_bps);
+	var v6 = upload ? asNum(met.up_v6_bps) : asNum(met.down_v6_bps);
+	var total = v4 + v6;
+	if (!detailed)
+		return E('td', {}, [ formatBpsAsByteRate(total) ]);
+	return E('td', { 'class': 'bplus-device-td-stacked' }, [
+		E('div', { 'class': 'bplus-device-metric-stack' }, [
+			E('div', { 'class': 'bplus-device-metric-total' }, [ formatBpsAsByteRate(total) ]),
+			E('div', { 'class': 'bplus-device-metric-sub' }, [
+				E('span', { 'class': 'bplus-device-metric-v4' }, [ 'IPv4 ' + formatBpsAsByteRate(v4) ]),
+				E('span', { 'class': 'bplus-device-metric-v6' }, [ 'IPv6 ' + formatBpsAsByteRate(v6) ])
+			])
+		])
+	]);
+}
+
+function deviceTableBytesTd(cum, upload, detailed) {
+	var v4b = upload ? asNum(cum.up_v4_bytes) : asNum(cum.down_v4_bytes);
+	var v6b = upload ? asNum(cum.up_v6_bytes) : asNum(cum.down_v6_bytes);
+	var tot = v4b + v6b;
+	if (!detailed)
+		return E('td', {}, [ formatBytes(tot) ]);
+	return E('td', { 'class': 'bplus-device-td-stacked' }, [
+		E('div', { 'class': 'bplus-device-metric-stack' }, [
+			E('div', { 'class': 'bplus-device-metric-total' }, [ formatBytes(tot) ]),
+			E('div', { 'class': 'bplus-device-metric-sub' }, [
+				E('span', { 'class': 'bplus-device-metric-v4' }, [ 'IPv4 ' + formatBytes(v4b) ]),
+				E('span', { 'class': 'bplus-device-metric-v6' }, [ 'IPv6 ' + formatBytes(v6b) ])
+			])
+		])
+	]);
 }
 
 function dateStartMs(s) {
@@ -265,7 +307,7 @@ function ensureCss() {
 			'id': 'bplus-status-css',
 			'rel': 'stylesheet',
 			'type': 'text/css',
-			'href': L.resource('bandix_plus/status.css', '?v=27')
+			'href': L.resource('bandix_plus/status.css', '?v=29')
 		}));
 	}
 	ensureLayoutCss();
@@ -293,10 +335,11 @@ return view.extend({
 		this.selectedIface = '';
 		this.selectedTrendMac = '';
 		this.selectedTrendType = 'all';
-		this.selectedTrendDirection = '';
 		this.devicesFilterIface = '';
 		this.overviewError = null;
 		this.liveRefreshError = null;
+		var bdm = localStorage.getItem('bplus_device_display_mode');
+		this.deviceDisplayMode = bdm === 'detailed' ? 'detailed' : 'simple';
 		this.deviceSortKey = 'ipv4';
 		this.deviceSortAsc = true;
 		this.scheduleEditingId = null;
@@ -393,7 +436,6 @@ return view.extend({
 
 	trendPointByteRates: function (x) {
 		var tt = String(this.selectedTrendType || '').trim();
-		var di = String(this.selectedTrendDirection || '').trim();
 		var u4 = asNum(x.up_v4_bps), u6 = asNum(x.up_v6_bps), d4 = asNum(x.down_v4_bps), d6 = asNum(x.down_v6_bps);
 		if (tt === 'ipv4') {
 			u6 = 0;
@@ -405,8 +447,6 @@ return view.extend({
 		}
 		var upBps = u4 + u6;
 		var downBps = d4 + d6;
-		if (di === 'up') downBps = 0;
-		if (di === 'down') upBps = 0;
 		var up = upBps / 8;
 		var down = downBps / 8;
 		if (up < 0) up = 0;
@@ -425,9 +465,8 @@ return view.extend({
 			return Promise.resolve();
 		}
 		var mac = this.selectedTrendMac || '';
-		var dir = this.selectedTrendDirection || '';
 		var tt = this.selectedTrendType === 'all' ? '' : (this.selectedTrendType || '');
-		return callGetTrend(this.selectedIface, mac, tt, dir)
+		return callGetTrend(this.selectedIface, mac, tt, '')
 			.then(function (r) { return unwrapData(r, []); })
 			.then(L.bind(function (list) {
 				var arr = Array.isArray(list) ? list : [];
@@ -751,7 +790,7 @@ return view.extend({
 			if (list[oi].online) online++;
 		}
 		if (this.el.devicesCount) {
-			this.el.devicesCount.textContent = String(list.length) + ' ' + _('entries') + ' · ' + _('Online') + ' ' + String(online);
+			this.el.devicesCount.textContent = _('Online devices') + ': ' + String(online) + ' / ' + String(list.length);
 		}
 
 		if (!list.length) {
@@ -759,24 +798,31 @@ return view.extend({
 			return;
 		}
 
+		var det = this.deviceDisplayMode === 'detailed';
 		for (var i = 0; i < list.length; i++) {
 			var d = list[i];
 			var cum = d.cumulative || {};
 			var met = d.metrics || {};
-			var cumUp = asNum(cum.up_v4_bytes) + asNum(cum.up_v6_bytes);
-			var cumDown = asNum(cum.down_v4_bytes) + asNum(cum.down_v6_bytes);
 			var hostDisplay = d.hostname === '-' || d.hostname == null || String(d.hostname).trim() === '' ? '' : String(d.hostname);
 			var hostText = hostDisplay || '—';
+			var hostTd = det
+				? E('td', { 'class': 'bplus-host bplus-host-cell--stacked' }, [
+					E('div', { 'class': 'bplus-host-stack' }, [
+						E('div', { 'class': 'bplus-host-primary' }, [ hostText ]),
+						E('div', { 'class': 'bplus-host-sub' }, [ formatDeviceLastSeenMs(d.last_seen_ms) ])
+					])
+				])
+				: E('td', { 'class': 'bplus-host' }, [ hostText ]);
 			var tr = E('tr', { 'class': d.online ? 'is-online' : 'is-offline' }, [
 				E('td', {}, [ d.logical_iface || '—' ]),
-				E('td', { 'class': 'bplus-host' }, [ hostText ]),
+				hostTd,
 				E('td', { 'class': 'bplus-mono' }, [ d.mac || '—' ]),
 				E('td', {}, [ (d.ipv4 && d.ipv4.length) ? d.ipv4.join(', ') : '—' ]),
 				E('td', {}, [ (d.ipv6 && d.ipv6.length) ? d.ipv6.join(', ') : '—' ]),
-				E('td', {}, [ formatBpsAsByteRate(sumUpBps(met)) ]),
-				E('td', {}, [ formatBpsAsByteRate(sumDownBps(met)) ]),
-				E('td', {}, [ formatBytes(cumUp) ]),
-				E('td', {}, [ formatBytes(cumDown) ])
+				deviceTableRateTd(met, true, det),
+				deviceTableRateTd(met, false, det),
+				deviceTableBytesTd(cum, true, det),
+				deviceTableBytesTd(cum, false, det)
 			]);
 			var fillBtn = E('button', {
 				'class': 'btn cbi-button cbi-button-action',
@@ -1569,13 +1615,6 @@ return view.extend({
 			this.refreshTrend(true);
 		}, this));
 
-		if (this.el.trendDirectionSelect) {
-			this.el.trendDirectionSelect.addEventListener('change', L.bind(function () {
-				this.selectedTrendDirection = this.el.trendDirectionSelect.value || '';
-				this.refreshTrend(true);
-			}, this));
-		}
-
 		if (this.el.devicesIfaceSelect) {
 			this.el.devicesIfaceSelect.addEventListener('change', L.bind(function () {
 				this.devicesFilterIface = this.el.devicesIfaceSelect.value || '';
@@ -1587,6 +1626,14 @@ return view.extend({
 				this.devicesFilterIface = '';
 				if (this.el.devicesIfaceSelect) this.el.devicesIfaceSelect.value = '';
 				this.refreshLive(true);
+			}, this));
+		}
+
+		if (this.el.deviceModeSelect) {
+			this.el.deviceModeSelect.addEventListener('change', L.bind(function () {
+				this.deviceDisplayMode = this.el.deviceModeSelect.value;
+				localStorage.setItem('bplus_device_display_mode', this.deviceDisplayMode);
+				this.renderDevicesTable();
 			}, this));
 		}
 
@@ -1646,15 +1693,14 @@ return view.extend({
 		this.el.overviewCount = E('span', { 'class': 'meta-pill', 'id': 'bplus-overview-count' }, [ '0 条' ]);
 
 		this.el.devicesIfaceSelect = E('select', { 'class': 'cbi-input-select' }, [ E('option', { 'value': '' }, [ _('All interfaces') ]) ]);
-		this.el.devicesFilterResetBtn = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-neutral' }, [ _('Reset') ]);
-		this.el.devicesCount = E('span', { 'class': 'meta-pill', 'id': 'bplus-devices-count' }, [ '0 ' + _('entries') ]);
-
-		this.el.trendDirectionSelect = E('select', { 'class': 'cbi-input-select' }, [
-			E('option', { 'value': '' }, [ 'both' ]),
-			E('option', { 'value': 'up' }, [ 'up' ]),
-			E('option', { 'value': 'down' }, [ 'down' ])
+		this.el.deviceModeSelect = E('select', { 'class': 'cbi-input-select' }, [
+			E('option', { 'value': 'simple' }, [ _('Simple Mode') ]),
+			E('option', { 'value': 'detailed' }, [ _('Detailed Mode') ])
 		]);
-		this.el.trendDirectionSelect.value = this.selectedTrendDirection || '';
+		this.el.deviceModeSelect.value = this.deviceDisplayMode;
+		this.el.devicesFilterResetBtn = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-neutral' }, [ _('Reset') ]);
+		this.el.devicesCount = E('span', { 'class': 'meta-pill', 'id': 'bplus-devices-count' }, [ _('Online devices') + ': 0 / 0' ]);
+
 		this.el.trendCount = E('span', { 'class': 'meta-pill', 'id': 'bplus-trend-count' }, [ '0 ' + _('entries') ]);
 
 		this.el.trendCanvas = E('canvas', { 'class': 'bplus-chart-canvas' });
@@ -1793,19 +1839,6 @@ return view.extend({
 				]),
 
 				E('section', { 'class': 'bplus-panel' }, [
-					E('div', { 'class': 'bplus-panel-head' }, [
-						E('h2', {}, [ _('Devices') ]),
-						this.el.devicesCount
-					]),
-					E('div', { 'class': 'bplus-inline-form' }, [
-						E('label', {}, [ _('Iface filter'), this.el.devicesIfaceSelect ]),
-						E('label', {}, [ _('Period'), this.el.periodSelect ]),
-						this.el.devicesFilterResetBtn
-					]),
-					E('div', { 'class': 'table-wrapper' }, [ E('table', { 'class': 'table bplus-table bplus-table--devices' }, [ this.el.deviceHead, this.el.deviceBody ]) ])
-				]),
-
-				E('section', { 'class': 'bplus-panel' }, [
 					E('div', { 'class': 'bplus-trend-title-row' }, [
 						E('div', { 'class': 'bplus-panel-head', 'style': 'margin:0;flex:1;min-width:0' }, [
 							E('h2', {}, [ _('Trend samples') ]),
@@ -1827,11 +1860,24 @@ return view.extend({
 					E('div', { 'class': 'bplus-inline-form bplus-trend-controls' }, [
 						E('label', {}, [ _('Iface'), this.el.ifaceSelect ]),
 						E('label', {}, [ _('Device MAC'), this.el.trendDeviceSelect ]),
-						E('label', {}, [ 'traffic_type', this.el.trendTypeSelect ]),
-						E('label', {}, [ 'direction', this.el.trendDirectionSelect ])
+						E('label', {}, [ 'traffic_type', this.el.trendTypeSelect ])
 					]),
 					E('div', { 'class': 'bplus-chart-wrap' }, [ this.el.trendCanvas, this.el.trendTooltip ]),
 					E('p', { 'class': 'chart-hint' }, [ _('Y axis: B/s (bps÷8). Wheel zooms; hover for values.') ])
+				]),
+
+				E('section', { 'class': 'bplus-panel' }, [
+					E('div', { 'class': 'bplus-panel-head' }, [
+						E('h2', {}, [ _('Devices') ]),
+						this.el.devicesCount
+					]),
+					E('div', { 'class': 'bplus-inline-form' }, [
+						E('label', {}, [ _('Iface filter'), this.el.devicesIfaceSelect ]),
+						E('label', {}, [ _('Period'), this.el.periodSelect ]),
+						E('label', {}, [ _('Display mode'), this.el.deviceModeSelect ]),
+						this.el.devicesFilterResetBtn
+					]),
+					E('div', { 'class': 'table-wrapper' }, [ E('table', { 'class': 'table bplus-table bplus-table--devices' }, [ this.el.deviceHead, this.el.deviceBody ]) ])
 				]),
 
 				E('section', { 'class': 'bplus-panel' }, [

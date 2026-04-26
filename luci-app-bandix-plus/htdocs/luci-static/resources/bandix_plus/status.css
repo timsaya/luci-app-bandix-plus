@@ -274,6 +274,31 @@
   text-align: left;
 }
 
+.bplus-page .bplus-table--devices td.bplus-device-td-stacked {
+  white-space: normal;
+  vertical-align: top;
+}
+
+.bplus-page .bplus-device-metric-stack {
+  display: grid;
+  gap: 4px 0;
+  min-width: 0;
+}
+
+.bplus-page .bplus-device-metric-total {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bplus-page .bplus-device-metric-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 2px 0;
+  font-size: 0.82rem;
+  color: var(--bplus-sub);
+  font-variant-numeric: tabular-nums;
+}
+
 .bplus-sortable {
   cursor: pointer;
   position: relative;
@@ -309,6 +334,29 @@
 
 .bplus-host {
   font-weight: 600;
+}
+
+.bplus-page .bplus-table--devices td.bplus-host-cell--stacked {
+  white-space: normal;
+  vertical-align: top;
+}
+
+.bplus-page .bplus-host-stack {
+  display: grid;
+  gap: 4px 0;
+  min-width: 0;
+}
+
+.bplus-page .bplus-host-primary {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bplus-page .bplus-host-sub {
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--bplus-sub);
+  font-variant-numeric: tabular-nums;
 }
 
 .bplus-subline {

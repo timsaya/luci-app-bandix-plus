@@ -68,6 +68,9 @@ msgstr "加入白名单"
 msgid "Online Devices"
 msgstr "在线设备"
 
+msgid "Online devices"
+msgstr "在线设备"
+
 msgid "Upload Rate"
 msgstr "上行速率"
 
@@ -80,8 +83,20 @@ msgstr "上行字节"
 msgid "Download bytes"
 msgstr "下行字节"
 
+msgid "Display mode"
+msgstr "显示模式"
+
+msgid "Simple Mode"
+msgstr "简易模式"
+
+msgid "Detailed Mode"
+msgstr "详细模式"
+
 msgid "Upload"
 msgstr "上传"
 
 msgid "Download"
 msgstr "下载"
+
+msgid "Y axis: B/s (bps÷8). Wheel zooms; hover for values."
+msgstr "纵轴为字节/秒（bps÷8）。滚轮缩放时间窗，悬停查看数值。"
