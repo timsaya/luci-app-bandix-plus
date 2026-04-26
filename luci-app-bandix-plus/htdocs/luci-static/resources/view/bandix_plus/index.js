@@ -685,10 +685,6 @@ return view.extend({
 				av = sumBytes(a.cumulative);
 				bv = sumBytes(b.cumulative);
 			}
-			else if (key === 'neighbor') {
-				av = a.neighbor_state || '';
-				bv = b.neighbor_state || '';
-			}
 			else if (key === 'cum_up') {
 				av = sumUpBytes(a.cumulative);
 				bv = sumUpBytes(b.cumulative);
@@ -742,7 +738,6 @@ return view.extend({
 			E('th', {}, [ 'IPv4' ]),
 			E('th', {}, [ 'IPv6' ]),
 			sortable(_('Online'), 'online'),
-			sortable(_('Neighbor'), 'neighbor'),
 			sortable(_('Upload B/s'), 'rate_up'),
 			sortable(_('Download B/s'), 'rate_down'),
 			sortable(_('Cumulative ↑'), 'cum_up'),
@@ -761,7 +756,7 @@ return view.extend({
 		}
 
 		if (!list.length) {
-			body.appendChild(E('tr', {}, [ E('td', { 'colspan': '12', 'class': 'bplus-empty' }, [ _('No devices') ]) ]));
+			body.appendChild(E('tr', {}, [ E('td', { 'colspan': '11', 'class': 'bplus-empty' }, [ _('No devices') ]) ]));
 			return;
 		}
 
@@ -786,7 +781,6 @@ return view.extend({
 				E('td', {}, [ (d.ipv4 && d.ipv4.length) ? d.ipv4.join(', ') : '—' ]),
 				E('td', {}, [ (d.ipv6 && d.ipv6.length) ? d.ipv6.join(', ') : '—' ]),
 				E('td', {}, [ onlineCell ]),
-				E('td', {}, [ d.neighbor_state != null ? String(d.neighbor_state) : '—' ]),
 				E('td', {}, [ formatBpsAsByteRate(sumUpBps(met)) ]),
 				E('td', {}, [ formatBpsAsByteRate(sumDownBps(met)) ]),
 				E('td', {}, [ formatBytes(cumUp) ]),
