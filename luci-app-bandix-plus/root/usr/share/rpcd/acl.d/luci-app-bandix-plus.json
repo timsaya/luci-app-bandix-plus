@@ -1,0 +1,54 @@
+{
+	"luci-app-bandix-plus": {
+		"description": "Allow Bandix Plus (bandix-plus) monitoring",
+		"read": {
+			"ubus": {
+				"luci.bandix_plus": [
+					"getHealth",
+					"getSnapshot",
+					"getOverview",
+					"getDevices",
+					"getTrend",
+					"getHistogram",
+					"getPolicy",
+					"getSchedules",
+					"getIfaceLimits",
+					"getGuestDefaults",
+					"getGuestWhitelist",
+					"getVersion"
+				]
+			},
+			"uci": [ "bandix_plus" ]
+		},
+		"write": {
+			"ubus": {
+				"luci.bandix_plus": [
+					"getHealth",
+					"getSnapshot",
+					"getOverview",
+					"getDevices",
+					"getTrend",
+					"getHistogram",
+					"getPolicy",
+					"getSchedules",
+					"getIfaceLimits",
+					"getGuestDefaults",
+					"getGuestWhitelist",
+					"getVersion",
+					"createSchedule",
+					"updateSchedule",
+					"deleteSchedule",
+					"setIfaceLimit",
+					"deleteIfaceLimit",
+					"setGuestDefault",
+					"deleteGuestDefault",
+					"addGuestWhitelist",
+					"removeGuestWhitelist",
+					"setDeviceHostname",
+					"restartService"
+				]
+			},
+			"uci": [ "bandix_plus" ]
+		}
+	}
+}

@@ -1,0 +1,267 @@
+#!/bin/sh
+# ubus: luci.bandix_plus — 代理到本机 bandix-plus HTTP API（见 bandix-plus/src/api.rs）
+. /usr/share/libubox/jshn.sh
+
+bplus_base() {
+	local p
+	p="$(uci -q get bandix_plus.general.port)"
+	[ -z "$p" ] && p="9911"
+	printf 'http://127.0.0.1:%s' "$p"
+}
+
+bplus_get() {
+	curl -s -g --connect-timeout 2 --max-time 15 -X GET "$1"
+}
+
+bplus_put_json() {
+	curl -s -g --connect-timeout 2 --max-time 20 -X PUT -H "Content-Type: application/json" -d "$1" "$2"
+}
+
+bplus_post_json() {
+	curl -s -g --connect-timeout 2 --max-time 20 -X POST -H "Content-Type: application/json" -d "$1" "$2"
+}
+
+bplus_delete() {
+	curl -s -g --connect-timeout 2 --max-time 20 -X DELETE "$1"
+}
+
+bplus_delete_json() {
+	curl -s -g --connect-timeout 2 --max-time 20 -X DELETE -H "Content-Type: application/json" -d "$1" "$2"
+}
+
+uripart() { printf %s "$1" | sed 's/+/%2B/g'; }
+
+case "$1" in
+	list)
+		json_init
+		json_add_object "getHealth"
+		json_close_object
+		json_add_object "getSnapshot"
+		json_close_object
+		json_add_object "getOverview"
+		json_add_string "period"
+		json_close_object
+		json_add_object "getDevices"
+		json_add_string "iface"
+		json_add_string "period"
+		json_close_object
+		json_add_object "getTrend"
+		json_add_string "iface"
+		json_add_string "mac"
+		json_add_string "traffic_type"
+		json_add_string "direction"
+		json_close_object
+		json_add_object "getHistogram"
+		json_add_string "iface"
+		json_add_string "mac"
+		json_add_string "traffic_type"
+		json_add_string "start_ms"
+		json_add_string "end_ms"
+		json_add_string "bucket"
+		json_close_object
+		json_add_object "getPolicy"
+		json_close_object
+		json_add_object "getSchedules"
+		json_close_object
+		json_add_object "createSchedule"
+		json_add_string "payload"
+		json_close_object
+		json_add_object "updateSchedule"
+		json_add_string "pair"
+		json_close_object
+		json_add_object "deleteSchedule"
+		json_add_string "id"
+		json_close_object
+		json_add_object "getIfaceLimits"
+		json_close_object
+		json_add_object "setIfaceLimit"
+		json_add_string "payload"
+		json_close_object
+		json_add_object "deleteIfaceLimit"
+		json_add_string "iface"
+		json_close_object
+		json_add_object "getGuestDefaults"
+		json_close_object
+		json_add_object "setGuestDefault"
+		json_add_string "payload"
+		json_close_object
+		json_add_object "deleteGuestDefault"
+		json_add_string "iface"
+		json_close_object
+		json_add_object "getGuestWhitelist"
+		json_close_object
+		json_add_object "addGuestWhitelist"
+		json_add_string "payload"
+		json_close_object
+		json_add_object "removeGuestWhitelist"
+		json_add_string "payload"
+		json_close_object
+		json_add_object "setDeviceHostname"
+		json_add_string "payload"
+		json_close_object
+		json_add_object "getVersion"
+		json_close_object
+		json_add_object "restartService"
+		json_close_object
+		json_dump
+		json_cleanup
+		;;
+	call)
+		BASE="$(bplus_base)"
+		case "$2" in
+			getHealth) bplus_get "$BASE/api/health" ;;
+			getSnapshot) bplus_get "$BASE/api/snapshot" ;;
+			getOverview)
+				input=""
+				read -t 1 -r input || true
+				period="${3:-}"
+				if [ -n "$input" ]; then
+					[ -z "$period" ] && period="$(echo "$input" | jsonfilter -e '$.period' 2>/dev/null)"
+					[ -z "$period" ] && period="$(echo "$input" | jsonfilter -e '$[0]' 2>/dev/null)"
+				fi
+				if [ -n "$period" ]; then
+					bplus_get "$BASE/api/overview?period=$(printf %s "$period" | sed 's/ /%20/g')"
+				else
+					bplus_get "$BASE/api/overview"
+				fi
+				;;
+			getDevices)
+				input=""
+				read -t 1 -r input || true
+				iface="${3:-}"; pperiod="${4:-}"
+				if [ -n "$input" ]; then
+					[ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$.iface' 2>/dev/null)"
+					[ -z "$pperiod" ] && pperiod="$(echo "$input" | jsonfilter -e '$.period' 2>/dev/null)"
+					[ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$[0]' 2>/dev/null)"
+					[ -z "$pperiod" ] && pperiod="$(echo "$input" | jsonfilter -e '$[1]' 2>/dev/null)"
+				fi
+				qs=""
+				[ -n "$iface" ] && qs="${qs}iface=$(printf %s "$iface" | sed 's/ /%20/g')&"
+				[ -n "$pperiod" ] && qs="${qs}period=$(printf %s "$pperiod" | sed 's/ /%20/g')&"
+				qs="${qs#}"; qs="${qs%&}"
+				[ -n "$qs" ] && bplus_get "$BASE/api/devices?$qs" || bplus_get "$BASE/api/devices"
+				;;
+			getTrend)
+				input=""
+				read -t 1 -r input || true
+				iface="${3:-}"; mac="${4:-}"; ttype="${5:-}"; ddir="${6:-}"
+				if [ -n "$input" ]; then
+					[ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$.iface' 2>/dev/null)"
+					[ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$[0]' 2>/dev/null)"
+					[ -z "$mac" ] && mac="$(echo "$input" | jsonfilter -e '$.mac' 2>/dev/null)"
+					[ -z "$mac" ] && mac="$(echo "$input" | jsonfilter -e '$[1]' 2>/dev/null)"
+					[ -z "$ttype" ] && ttype="$(echo "$input" | jsonfilter -e '$.traffic_type' 2>/dev/null)"
+					[ -z "$ttype" ] && ttype="$(echo "$input" | jsonfilter -e '$[2]' 2>/dev/null)"
+					[ -z "$ddir" ] && ddir="$(echo "$input" | jsonfilter -e '$.direction' 2>/dev/null)"
+					[ -z "$ddir" ] && ddir="$(echo "$input" | jsonfilter -e '$[3]' 2>/dev/null)"
+				fi
+				qs=""
+				[ -n "$iface" ] && qs="iface=$(printf %s "$iface" | sed 's/ /%20/g')"
+				[ -n "$mac" ] && qs="${qs}${qs:+&}mac=$(printf %s "$mac" | sed 's/ /%20/g')"
+				[ -n "$ttype" ] && qs="${qs}${qs:+&}traffic_type=$(printf %s "$ttype" | sed 's/ /%20/g')"
+				[ -n "$ddir" ] && qs="${qs}${qs:+&}direction=$(printf %s "$ddir" | sed 's/ /%20/g')"
+				[ -n "$qs" ] && bplus_get "$BASE/api/trend?$qs" || bplus_get "$BASE/api/trend"
+				;;
+			getHistogram)
+				input=""
+				read -t 1 -r input || true
+				iface="${3:-}"; mac="${4:-}"; ttype="${5:-}"; s_ms="${6:-}"; e_ms="${7:-}"; bucket="${8:-}"
+				if [ -n "$input" ]; then
+					[ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$.iface' 2>/dev/null)"
+					[ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$[0]' 2>/dev/null)"
+					[ -z "$mac" ] && mac="$(echo "$input" | jsonfilter -e '$.mac' 2>/dev/null)"
+					[ -z "$ttype" ] && ttype="$(echo "$input" | jsonfilter -e '$.traffic_type' 2>/dev/null)"
+					[ -z "$s_ms" ] && s_ms="$(echo "$input" | jsonfilter -e '$.start_ms' 2>/dev/null)"
+					[ -z "$e_ms" ] && e_ms="$(echo "$input" | jsonfilter -e '$.end_ms' 2>/dev/null)"
+					[ -z "$bucket" ] && bucket="$(echo "$input" | jsonfilter -e '$.bucket' 2>/dev/null)"
+				fi
+				qs=""
+				[ -n "$iface" ] && qs="iface=$(printf %s "$iface" | sed 's/ /%20/g')"
+				[ -n "$mac" ] && qs="${qs}${qs:+&}mac=$(printf %s "$mac" | sed 's/ /%20/g')"
+				[ -n "$ttype" ] && qs="${qs}${qs:+&}traffic_type=$(printf %s "$ttype" | sed 's/ /%20/g')"
+				[ -n "$s_ms" ] && qs="${qs}${qs:+&}start_ms=$s_ms"
+				[ -n "$e_ms" ] && qs="${qs}${qs:+&}end_ms=$e_ms"
+				[ -n "$bucket" ] && qs="${qs}${qs:+&}bucket=$bucket"
+				[ -n "$qs" ] && bplus_get "$BASE/api/histogram?$qs" || bplus_get "$BASE/api/histogram"
+				;;
+			getPolicy) bplus_get "$BASE/api/policy" ;;
+			getSchedules) bplus_get "$BASE/api/rate_limit/schedules" ;;
+			createSchedule)
+				js="${3:-}"
+				[ -z "$js" ] && { read -r -t 5 js || true; }
+				bplus_post_json "$js" "$BASE/api/rate_limit/schedules"
+				;;
+			updateSchedule)
+				pair="${3:-}"
+				[ -z "$pair" ] && { read -r -t 5 pair || true; }
+				rid="$(echo "$pair" | jsonfilter -e '$[0]')"
+				body="$(echo "$pair" | jsonfilter -e '$[1]')"
+				[ -n "$rid" ] && [ -n "$body" ] && bplus_put_json "$body" "$BASE/api/rate_limit/schedules/$(uripart "$rid")" && exit 0
+				printf '%s' '{"ok":false,"data":null,"error":"updateSchedule: 参数为 JSON 数组 [id, 体对象]"}'
+				;;
+			deleteSchedule)
+				rid="${3:-}"
+				[ -z "$rid" ] && { read -t 1 -r input || true; rid="$(echo "$input" | jsonfilter -e '$[0]')"; [ -z "$rid" ] && rid="$(echo "$input" | jsonfilter -e '$.id' 2>/dev/null)"; }
+				bplus_delete "$BASE/api/rate_limit/schedules/$(uripart "$rid")"
+				;;
+			getIfaceLimits) bplus_get "$BASE/api/rate_limit/iface_limits" ;;
+			setIfaceLimit)
+				js="${3:-}"
+				[ -z "$js" ] && { read -r -t 5 js || true; }
+				bplus_post_json "$js" "$BASE/api/rate_limit/iface_limits"
+				;;
+			deleteIfaceLimit)
+				iface="${3:-}"
+				[ -z "$iface" ] && { read -t 1 -r input || true; iface="$(echo "$input" | jsonfilter -e '$[0]')"; [ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$.iface' 2>/dev/null)"; }
+				bplus_delete "$BASE/api/rate_limit/iface_limits/$(uripart "$iface")"
+				;;
+			getGuestDefaults) bplus_get "$BASE/api/rate_limit/guest_defaults" ;;
+			setGuestDefault)
+				js="${3:-}"
+				[ -z "$js" ] && { read -r -t 5 js || true; }
+				bplus_post_json "$js" "$BASE/api/rate_limit/guest_defaults"
+				;;
+			deleteGuestDefault)
+				iface="${3:-}"
+				[ -z "$iface" ] && { read -t 1 -r input || true; iface="$(echo "$input" | jsonfilter -e '$[0]')"; [ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$.iface' 2>/dev/null)"; }
+				bplus_delete "$BASE/api/rate_limit/guest_defaults/$(uripart "$iface")"
+				;;
+			getGuestWhitelist) bplus_get "$BASE/api/rate_limit/guest_whitelist" ;;
+			addGuestWhitelist)
+				js="${3:-}"
+				[ -z "$js" ] && { read -r -t 5 js || true; }
+				bplus_post_json "$js" "$BASE/api/rate_limit/guest_whitelist"
+				;;
+			removeGuestWhitelist)
+				js="${3:-}"
+				[ -z "$js" ] && { read -r -t 5 js || true; }
+				bplus_delete_json "$js" "$BASE/api/rate_limit/guest_whitelist"
+				;;
+			setDeviceHostname)
+				js="${3:-}"
+				[ -z "$js" ] && { read -r -t 5 js || true; }
+				bplus_put_json "$js" "$BASE/api/devices/hostname"
+				;;
+			getVersion)
+				pkgv=""
+				[ -f /usr/lib/opkg/info/bandix-plus.control ] && \
+					pkgv=$(grep "^Version:" /usr/lib/opkg/info/bandix-plus.control 2>/dev/null | cut -d' ' -f2)
+				hb=$(bplus_get "$BASE/api/health")
+				api_ok=""; echo "$hb" | grep -q '"ok":true' && api_ok=1
+				json_init
+				json_add_string "bandix_plus_pkg" "${pkgv:-unknown}"
+				json_add_string "api_health_ok" "${api_ok:-0}"
+				json_dump
+				json_cleanup
+				;;
+			restartService)
+				if /etc/init.d/bandix-plus restart 2>/dev/null; then
+					json_init; json_add_string ok "1"; json_dump; json_cleanup
+				else
+					c="$?"
+					json_init; json_add_string ok "0"; json_add_int err "$c"; json_dump; json_cleanup
+				fi
+				;;
+		esac
+		;;
+esac

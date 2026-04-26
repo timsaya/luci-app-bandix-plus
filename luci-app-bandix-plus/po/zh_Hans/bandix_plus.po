@@ -1,0 +1,75 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "bandix-plus"
+msgstr "bandix-plus"
+
+msgid "Bandix Plus"
+msgstr "Bandix Plus"
+
+msgid "Rate limit & policy"
+msgstr "限速与策略"
+
+msgid "Cumulative: all (live only)"
+msgstr "累计：全部（仅当前速率与实时累积）"
+
+msgid "Cumulative: today"
+msgstr "累计：本日"
+
+msgid "Cumulative: this week"
+msgstr "累计：本周"
+
+msgid "Cumulative: this month"
+msgstr "累计：本月"
+
+msgid "Cumulative: this year"
+msgstr "累计：本年"
+
+msgid "Name / zone"
+msgstr "网卡 / 域"
+
+msgid "Refresh now"
+msgstr "立即刷新"
+
+msgid "Cumulative (bytes) for period"
+msgstr "所选时间段的累计字节"
+
+msgid "L4 bps (sum v4/v6, both dirs)"
+msgstr "L4 方向合计速率（v4/v6 双向）"
+
+msgid "Cumulative: all (live)"
+msgstr "累计：全部（实时）"
+
+msgid "HTTP API 端口与 bandix-plus --api-bind 的端口段一致，默认 9911。"
+msgstr "本页端口须与 bandix-plus 的 --api-bind 端口一致，默认可填 9911。"
+
+msgid "General"
+msgstr "基本"
+
+msgid "Port"
+msgstr "端口"
+
+msgid "Info"
+msgstr "信息"
+
+msgid "add schedule"
+msgstr "添加计划"
+
+msgid "set"
+msgstr "应用"
+
+msgid "set default"
+msgstr "设访客默认"
+
+msgid "add to whitelist"
+msgstr "加入白名单"
+
+msgid "Online Devices"
+msgstr "在线设备"
+
+msgid "Upload Rate"
+msgstr "上行速率"
+
+msgid "Download Rate"
+msgstr "下行速率"
