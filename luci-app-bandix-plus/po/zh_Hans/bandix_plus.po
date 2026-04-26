@@ -74,6 +74,12 @@ msgstr "上行速率"
 msgid "Download Rate"
 msgstr "下行速率"
 
+msgid "Upload bytes"
+msgstr "上行字节"
+
+msgid "Download bytes"
+msgstr "下行字节"
+
 msgid "Upload"
 msgstr "上传"
 

@@ -269,6 +269,11 @@
   font-size: 14px;
 }
 
+.bplus-page .bplus-table--devices th,
+.bplus-page .bplus-table--devices td {
+  text-align: left;
+}
+
 .bplus-sortable {
   cursor: pointer;
   position: relative;

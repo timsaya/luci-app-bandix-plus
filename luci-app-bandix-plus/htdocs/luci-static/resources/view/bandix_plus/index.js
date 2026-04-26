@@ -93,11 +93,6 @@ function sumDownBps(x) {
 	return asNum(x.down_v4_bps) + asNum(x.down_v6_bps);
 }
 
-function sumBytes(x) {
-	if (!x) return 0;
-	return asNum(x.up_v4_bytes) + asNum(x.up_v6_bytes) + asNum(x.down_v4_bytes) + asNum(x.down_v6_bytes);
-}
-
 function sumUpBytes(x) {
 	if (!x) return 0;
 	return asNum(x.up_v4_bytes) + asNum(x.up_v6_bytes);
@@ -143,6 +138,22 @@ function compareVal(a, b) {
 	if (b == null) return 1;
 	if (typeof a === 'number' && typeof b === 'number') return a - b;
 	return String(a).localeCompare(String(b));
+}
+
+/** 设备列表 IPv4 排序：取第一个地址，按四段数值比较；无/无效为 -1。 */
+function deviceFirstIpv4Uint(d) {
+	var arr = d && d.ipv4;
+	if (!arr || !arr.length) return -1;
+	var raw = String(arr[0]).split('/')[0].trim();
+	var parts = raw.split('.');
+	if (parts.length !== 4) return -1;
+	var n = 0;
+	for (var i = 0; i < 4; i++) {
+		var o = parseInt(parts[i], 10);
+		if (isNaN(o) || o < 0 || o > 255) return -1;
+		n = ((n << 8) >>> 0) + o;
+	}
+	return n >>> 0;
 }
 
 function dateStartMs(s) {
@@ -254,7 +265,7 @@ function ensureCss() {
 			'id': 'bplus-status-css',
 			'rel': 'stylesheet',
 			'type': 'text/css',
-			'href': L.resource('bandix_plus/status.css', '?v=26')
+			'href': L.resource('bandix_plus/status.css', '?v=27')
 		}));
 	}
 	ensureLayoutCss();
@@ -286,8 +297,8 @@ return view.extend({
 		this.devicesFilterIface = '';
 		this.overviewError = null;
 		this.liveRefreshError = null;
-		this.deviceSortKey = 'rate_total';
-		this.deviceSortAsc = false;
+		this.deviceSortKey = 'ipv4';
+		this.deviceSortAsc = true;
 		this.scheduleEditingId = null;
 		this.overview = [];
 		this.devices = [];
@@ -650,17 +661,17 @@ return view.extend({
 		var key = this.deviceSortKey;
 		list.sort(function (a, b) {
 			var av, bv;
-			if (key === 'online') {
-				av = a.online ? 1 : 0;
-				bv = b.online ? 1 : 0;
-			}
-			else if (key === 'host') {
+			if (key === 'host') {
 				av = (a.hostname || '').toLowerCase();
 				bv = (b.hostname || '').toLowerCase();
 			}
 			else if (key === 'iface') {
 				av = a.logical_iface || '';
 				bv = b.logical_iface || '';
+			}
+			else if (key === 'ipv4') {
+				av = deviceFirstIpv4Uint(a);
+				bv = deviceFirstIpv4Uint(b);
 			}
 			else if (key === 'rate_up') {
 				av = sumUpBps(a.metrics);
@@ -674,15 +685,11 @@ return view.extend({
 				av = sumBps(a.metrics);
 				bv = sumBps(b.metrics);
 			}
-			else if (key === 'cum') {
-				av = sumBytes(a.cumulative);
-				bv = sumBytes(b.cumulative);
-			}
-			else if (key === 'cum_up') {
+			else if (key === 'up_bytes') {
 				av = sumUpBytes(a.cumulative);
 				bv = sumUpBytes(b.cumulative);
 			}
-			else if (key === 'cum_down') {
+			else if (key === 'down_bytes') {
 				av = sumDownBytes(a.cumulative);
 				bv = sumDownBytes(b.cumulative);
 			}
@@ -728,13 +735,12 @@ return view.extend({
 			sortable(_('Iface'), 'iface'),
 			E('th', {}, [ _('Hostname') ]),
 			sortable(_('MAC'), 'mac'),
-			E('th', {}, [ 'IPv4' ]),
+			sortable('IPv4', 'ipv4'),
 			E('th', {}, [ 'IPv6' ]),
-			sortable(_('Online'), 'online'),
-			sortable(_('Upload B/s'), 'rate_up'),
-			sortable(_('Download B/s'), 'rate_down'),
-			sortable(_('Cumulative ↑'), 'cum_up'),
-			sortable(_('Cumulative ↓'), 'cum_down'),
+			sortable(_('Upload Rate'), 'rate_up'),
+			sortable(_('Download Rate'), 'rate_down'),
+			sortable(_('Upload bytes'), 'up_bytes'),
+			sortable(_('Download bytes'), 'down_bytes'),
 			E('th', {}, [ _('Actions') ])
 		]);
 		head.appendChild(trh);
@@ -749,7 +755,7 @@ return view.extend({
 		}
 
 		if (!list.length) {
-			body.appendChild(E('tr', {}, [ E('td', { 'colspan': '11', 'class': 'bplus-empty' }, [ _('No devices') ]) ]));
+			body.appendChild(E('tr', {}, [ E('td', { 'colspan': '10', 'class': 'bplus-empty' }, [ _('No devices') ]) ]));
 			return;
 		}
 
@@ -761,14 +767,12 @@ return view.extend({
 			var cumDown = asNum(cum.down_v4_bytes) + asNum(cum.down_v6_bytes);
 			var hostDisplay = d.hostname === '-' || d.hostname == null || String(d.hostname).trim() === '' ? '' : String(d.hostname);
 			var hostText = hostDisplay || '—';
-			var onlineCell = d.online ? _('yes') : _('no');
 			var tr = E('tr', { 'class': d.online ? 'is-online' : 'is-offline' }, [
 				E('td', {}, [ d.logical_iface || '—' ]),
 				E('td', { 'class': 'bplus-host' }, [ hostText ]),
 				E('td', { 'class': 'bplus-mono' }, [ d.mac || '—' ]),
 				E('td', {}, [ (d.ipv4 && d.ipv4.length) ? d.ipv4.join(', ') : '—' ]),
 				E('td', {}, [ (d.ipv6 && d.ipv6.length) ? d.ipv6.join(', ') : '—' ]),
-				E('td', {}, [ onlineCell ]),
 				E('td', {}, [ formatBpsAsByteRate(sumUpBps(met)) ]),
 				E('td', {}, [ formatBpsAsByteRate(sumDownBps(met)) ]),
 				E('td', {}, [ formatBytes(cumUp) ]),
@@ -1798,7 +1802,7 @@ return view.extend({
 						E('label', {}, [ _('Period'), this.el.periodSelect ]),
 						this.el.devicesFilterResetBtn
 					]),
-					E('div', { 'class': 'table-wrapper' }, [ E('table', { 'class': 'table bplus-table' }, [ this.el.deviceHead, this.el.deviceBody ]) ])
+					E('div', { 'class': 'table-wrapper' }, [ E('table', { 'class': 'table bplus-table bplus-table--devices' }, [ this.el.deviceHead, this.el.deviceBody ]) ])
 				]),
 
 				E('section', { 'class': 'bplus-panel' }, [
