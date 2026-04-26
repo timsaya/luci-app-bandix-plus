@@ -685,10 +685,6 @@ return view.extend({
 				av = sumBytes(a.cumulative);
 				bv = sumBytes(b.cumulative);
 			}
-			else if (key === 'subnet') {
-				av = a.subnet || '';
-				bv = b.subnet || '';
-			}
 			else if (key === 'neighbor') {
 				av = a.neighbor_state || '';
 				bv = b.neighbor_state || '';
@@ -741,7 +737,6 @@ return view.extend({
 
 		var trh = E('tr', {}, [
 			sortable(_('Iface'), 'iface'),
-			sortable(_('Subnet'), 'subnet'),
 			E('th', {}, [ _('Hostname') ]),
 			sortable(_('MAC'), 'mac'),
 			E('th', {}, [ 'IPv4' ]),
@@ -766,7 +761,7 @@ return view.extend({
 		}
 
 		if (!list.length) {
-			body.appendChild(E('tr', {}, [ E('td', { 'colspan': '13', 'class': 'bplus-empty' }, [ _('No devices') ]) ]));
+			body.appendChild(E('tr', {}, [ E('td', { 'colspan': '12', 'class': 'bplus-empty' }, [ _('No devices') ]) ]));
 			return;
 		}
 
@@ -786,7 +781,6 @@ return view.extend({
 			var onlineCell = d.online ? _('yes') : _('no');
 			var tr = E('tr', { 'class': d.online ? 'is-online' : 'is-offline' }, [
 				E('td', {}, [ d.logical_iface || '—' ]),
-				E('td', {}, [ d.subnet || '—' ]),
 				E('td', { 'class': 'hostname-cell' }, [ hostInput ]),
 				E('td', { 'class': 'bplus-mono' }, [ d.mac || '—' ]),
 				E('td', {}, [ (d.ipv4 && d.ipv4.length) ? d.ipv4.join(', ') : '—' ]),
