@@ -34,13 +34,6 @@ var callGetHistogram = rpc.declare({
 	expect: {}
 });
 
-var callSetDeviceHostname = rpc.declare({
-	object: 'luci.bandix_plus',
-	method: 'setDeviceHostname',
-	params: [ 'payload' ],
-	expect: {}
-});
-
 var callGetPolicy = rpc.declare({ object: 'luci.bandix_plus', method: 'getPolicy', expect: {} });
 var callGetSchedules = rpc.declare({ object: 'luci.bandix_plus', method: 'getSchedules', expect: {} });
 var callCreateSchedule = rpc.declare({ object: 'luci.bandix_plus', method: 'createSchedule', params: [ 'payload' ], expect: {} });
@@ -261,7 +254,7 @@ function ensureCss() {
 			'id': 'bplus-status-css',
 			'rel': 'stylesheet',
 			'type': 'text/css',
-			'href': L.resource('bandix_plus/status.css', '?v=25')
+			'href': L.resource('bandix_plus/status.css', '?v=26')
 		}));
 	}
 	ensureLayoutCss();
@@ -767,16 +760,11 @@ return view.extend({
 			var cumUp = asNum(cum.up_v4_bytes) + asNum(cum.up_v6_bytes);
 			var cumDown = asNum(cum.down_v4_bytes) + asNum(cum.down_v6_bytes);
 			var hostDisplay = d.hostname === '-' || d.hostname == null || String(d.hostname).trim() === '' ? '' : String(d.hostname);
-			var hostInput = E('input', {
-				'type': 'text',
-				'class': 'cbi-input-text',
-				'value': hostDisplay,
-				'placeholder': _('Hostname')
-			});
+			var hostText = hostDisplay || '—';
 			var onlineCell = d.online ? _('yes') : _('no');
 			var tr = E('tr', { 'class': d.online ? 'is-online' : 'is-offline' }, [
 				E('td', {}, [ d.logical_iface || '—' ]),
-				E('td', { 'class': 'hostname-cell' }, [ hostInput ]),
+				E('td', { 'class': 'bplus-host' }, [ hostText ]),
 				E('td', { 'class': 'bplus-mono' }, [ d.mac || '—' ]),
 				E('td', {}, [ (d.ipv4 && d.ipv4.length) ? d.ipv4.join(', ') : '—' ]),
 				E('td', {}, [ (d.ipv6 && d.ipv6.length) ? d.ipv6.join(', ') : '—' ]),
@@ -786,39 +774,13 @@ return view.extend({
 				E('td', {}, [ formatBytes(cumUp) ]),
 				E('td', {}, [ formatBytes(cumDown) ])
 			]);
-			var saveBtn = E('button', {
-				'class': 'btn cbi-button cbi-button-save',
-				'click': L.bind(this.saveDeviceHostname, this, d, hostInput)
-			}, [ _('Save') ]);
 			var fillBtn = E('button', {
 				'class': 'btn cbi-button cbi-button-action',
 				'click': L.bind(this.prefillScheduleFromDevice, this, d)
 			}, [ _('Use in Schedule') ]);
-			tr.appendChild(E('td', {}, [ E('div', { 'class': 'bplus-actions' }, [ saveBtn, fillBtn ]) ]));
+			tr.appendChild(E('td', {}, [ E('div', { 'class': 'bplus-actions' }, [ fillBtn ]) ]));
 			body.appendChild(tr);
 		}
-	},
-
-	saveDeviceHostname: function (dev, inputEl) {
-		var next = String(inputEl.value || '').trim();
-		if (!next) {
-			this.notifyError(_('Hostname cannot be empty'), null);
-			return;
-		}
-		var payload = {
-			iface: dev.logical_iface || '',
-			mac: dev.mac,
-			hostname: next
-		};
-		callSetDeviceHostname(payload).then(bplusJson).then(L.bind(function (r) {
-			if (r && r.ok === false) {
-				throw new Error(r.error || 'set hostname failed');
-			}
-			ui.addNotification(null, E('p', {}, [ _('Hostname updated') ]));
-			return this.refreshLive(false);
-		}, this)).catch(L.bind(function (e) {
-			this.notifyError(_('Failed to set hostname'), e);
-		}, this));
 	},
 
 	prefillScheduleFromDevice: function (dev) {

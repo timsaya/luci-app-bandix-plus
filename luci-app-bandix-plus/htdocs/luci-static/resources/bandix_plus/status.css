@@ -80,6 +80,11 @@
   --bplus-down-v6: #5eead4;
   color: var(--bplus-text);
   font-size: 16px;
+  /* LuCI 内容区常为 flex 子项，不设 min-width:0 时子树 intrinsic 宽度会撑破视口 */
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .bplus-page.theme-dark {
@@ -354,6 +359,23 @@
 
 .bplus-page .table-wrapper {
   overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.bplus-page .bplus-chart-wrap {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.bplus-page .bplus-trend-title-row {
+  min-width: 0;
+}
+
+.bplus-page .bplus-trend-title-row .bplus-panel-head {
+  min-width: 0;
 }
 
 .bplus-page tr.is-online {
@@ -397,6 +419,9 @@
 .bplus-page .bplus-main {
   display: grid;
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .bplus-page .bplus-topbar {
@@ -406,6 +431,9 @@
   border-radius: 12px;
   display: grid;
   gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .bplus-page .bplus-topbar .bplus-title-wrap h1 {
@@ -471,6 +499,9 @@
   background: var(--bplus-bg);
   border: 1px solid var(--bplus-border);
   border-radius: 12px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .bplus-page .bplus-panel-head {
@@ -479,6 +510,7 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
+  min-width: 0;
 }
 
 .bplus-page .bplus-panel-head h2,
@@ -535,13 +567,26 @@
 }
 
 .bplus-page .overview-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* 仅 1 张接口卡时占满一行 */
+.bplus-page .overview-grid > .overview-card:only-of-type {
+  grid-column: 1 / -1;
+}
+
+/* 每行最多 3 张；若最后一行只余 1 张（1、4、7… 张时最后一张），拉满该行 */
+.bplus-page .overview-grid:has(> .overview-card:nth-child(3n + 1):last-child) > .overview-card:nth-child(3n + 1):last-child {
+  grid-column: 1 / -1;
 }
 
 .bplus-page .overview-state {
-  flex: 1 1 100%;
+  grid-column: 1 / -1;
   width: 100%;
   box-sizing: border-box;
   text-align: center;
@@ -561,7 +606,6 @@
 }
 
 .bplus-page .overview-card {
-  flex: 1 1 200px;
   min-width: 0;
   max-width: 100%;
   border: 1px solid var(--bplus-border);
@@ -627,9 +671,11 @@
 
 .bplus-page .overview-hero-pair {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px 12px;
   align-items: stretch;
+  min-width: 0;
+  width: 100%;
 }
 
 @media (max-width: 360px) {
@@ -695,7 +741,7 @@
   font-variant-numeric: tabular-nums;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: nowrap;
-  min-width: 12ch;
+  min-width: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -842,20 +888,6 @@
   gap: 4px;
   font-size: 0.88rem;
   color: var(--bplus-sub);
-}
-
-.bplus-page .hostname-cell {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  min-width: 8rem;
-}
-
-.bplus-page .hostname-cell .cbi-input-text {
-  flex: 1 1 6rem;
-  min-width: 5rem;
-  max-width: 12rem;
 }
 
 .bplus-page .bplus-section--flush {
