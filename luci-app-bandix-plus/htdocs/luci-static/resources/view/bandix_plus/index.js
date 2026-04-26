@@ -240,13 +240,13 @@ function ensureLayoutCss() {
 	st.id = 'bplus-layout-css-v2';
 	st.type = 'text/css';
 	st.textContent = [
-		'.bplus-page{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;}',
+		'.bplus-page{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;width:100%;max-width:100%;min-width:0;box-sizing:border-box;}',
 		'.bplus-page .bplus-header{display:flex;align-items:center;justify-content:space-between;margin:0 0 4px 0;}',
 		'.bplus-page .bplus-title-wrapper{display:flex;align-items:baseline;flex-wrap:wrap;gap:12px 20px;}',
 		'.bplus-page .bplus-title{font-size:1.5rem;font-weight:600;margin:0;line-height:1.2;}',
 		'.bplus-page .bplus-version{font-size:0.875rem;opacity:0.55;font-weight:400;}',
-		'.bplus-page .bplus-section-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:0 0 12px 0;}',
-		'.bplus-page .bplus-section-head .bplus-panel-title{margin:0;font-size:1.1rem;font-weight:600;flex:1 1 auto;min-width:8em;}',
+		'.bplus-page .bplus-section-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:0 0 12px 0;min-width:0;}',
+		'.bplus-page .bplus-section-head .bplus-panel-title{margin:0;font-size:1.1rem;font-weight:600;flex:1 1 auto;min-width:0;}',
 		'.bplus-page .bplus-trend-toolbar,.bplus-page .bplus-device-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;justify-content:flex-end;}',
 		'.bplus-page .bplus-trend-toolbar .cbi-input-select,.bplus-page .bplus-device-toolbar .cbi-input-select{min-width:6em;}',
 		'.bplus-page .bplus-section{margin-top:1.25rem;}',
@@ -261,7 +261,7 @@ function ensureCss() {
 			'id': 'bplus-status-css',
 			'rel': 'stylesheet',
 			'type': 'text/css',
-			'href': L.resource('bandix_plus/status.css', '?v=23')
+			'href': L.resource('bandix_plus/status.css', '?v=25')
 		}));
 	}
 	ensureLayoutCss();
@@ -685,10 +685,6 @@ return view.extend({
 				av = sumBytes(a.cumulative);
 				bv = sumBytes(b.cumulative);
 			}
-			else if (key === 'ifindex') {
-				av = asNum(a.ifindex);
-				bv = asNum(b.ifindex);
-			}
 			else if (key === 'subnet') {
 				av = a.subnet || '';
 				bv = b.subnet || '';
@@ -744,7 +740,6 @@ return view.extend({
 		}
 
 		var trh = E('tr', {}, [
-			sortable('ifindex', 'ifindex'),
 			sortable(_('Iface'), 'iface'),
 			sortable(_('Subnet'), 'subnet'),
 			E('th', {}, [ _('Hostname') ]),
@@ -771,7 +766,7 @@ return view.extend({
 		}
 
 		if (!list.length) {
-			body.appendChild(E('tr', {}, [ E('td', { 'colspan': '14', 'class': 'bplus-empty' }, [ _('No devices') ]) ]));
+			body.appendChild(E('tr', {}, [ E('td', { 'colspan': '13', 'class': 'bplus-empty' }, [ _('No devices') ]) ]));
 			return;
 		}
 
@@ -790,7 +785,6 @@ return view.extend({
 			});
 			var onlineCell = d.online ? _('yes') : _('no');
 			var tr = E('tr', { 'class': d.online ? 'is-online' : 'is-offline' }, [
-				E('td', {}, [ String(d.ifindex != null ? d.ifindex : '') ]),
 				E('td', {}, [ d.logical_iface || '—' ]),
 				E('td', {}, [ d.subnet || '—' ]),
 				E('td', { 'class': 'hostname-cell' }, [ hostInput ]),
@@ -1859,7 +1853,7 @@ return view.extend({
 
 				E('section', { 'class': 'bplus-panel' }, [
 					E('div', { 'class': 'bplus-trend-title-row' }, [
-						E('div', { 'class': 'bplus-panel-head', 'style': 'margin:0;flex:1' }, [
+						E('div', { 'class': 'bplus-panel-head', 'style': 'margin:0;flex:1;min-width:0' }, [
 							E('h2', {}, [ _('Trend samples') ]),
 							this.el.trendCount
 						]),
