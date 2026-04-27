@@ -212,6 +212,49 @@ function dateEndMs(s) {
 	return d.getTime();
 }
 
+function formatDateInput(d) {
+	var year = d.getFullYear();
+	var month = (d.getMonth() + 1).toString().padStart(2, '0');
+	var day = d.getDate().toString().padStart(2, '0');
+	return year + '-' + month + '-' + day;
+}
+
+function formatSlashDateTimeRange(startMs, endMs) {
+	var s = new Date(startMs);
+	var e = new Date(endMs);
+	function slash(x) {
+		return x.getFullYear() + '/' + String(x.getMonth() + 1).padStart(2, '0') + '/' + String(x.getDate()).padStart(2, '0');
+	}
+	return slash(s) + ' 00:00 - ' + slash(e) + ' 23:59';
+}
+
+/**
+ * Same as luci-app-bandix `formatTimeRange(startMs, endMs)` (traffic-increments header / timerange):
+ * always `YYYY/MM/DD HH:mm - YYYY/MM/DD HH:mm` from local wall time.
+ */
+function formatStatsHistTooltipTimeRange(startMs, endMs) {
+	if (startMs == null || endMs == null) return '';
+	var startDate = new Date(asNum(startMs));
+	var endDate = new Date(asNum(endMs));
+	function formatDateTime(date) {
+		var year = date.getFullYear();
+		var month = (date.getMonth() + 1).toString().padStart(2, '0');
+		var day = date.getDate().toString().padStart(2, '0');
+		var hours = date.getHours().toString().padStart(2, '0');
+		var minutes = date.getMinutes().toString().padStart(2, '0');
+		return year + '/' + month + '/' + day + ' ' + hours + ':' + minutes;
+	}
+	return formatDateTime(startDate) + ' - ' + formatDateTime(endDate);
+}
+
+/** luci-app-bandix `msToTimeLabel`: wall time HH:mm:ss (history realtime tooltip title). */
+function msToTimeLabel(tsMs) {
+	var d = new Date(asNum(tsMs));
+	return d.getHours().toString().padStart(2, '0') + ':' +
+		d.getMinutes().toString().padStart(2, '0') + ':' +
+		d.getSeconds().toString().padStart(2, '0');
+}
+
 function daysText(days) {
 	if (!days || !days.length) return '—';
 	return days.join(',');
@@ -222,34 +265,11 @@ var BPLUS_TREND_MAX_RATE_BPS = 1024 * 1024 * 1024 * 10; // 10 GB/s guardrail
 /* Chart CSS size: parent width + fixed height (same idea as luci-app-bandix drawIncrementsChart / #history-canvas). */
 var BPLUS_TREND_CHART_CSS_H = 220;
 var BPLUS_STATS_CHART_CSS_H = 280;
-
-function mapLimit(list, limit, mapper) {
-	limit = Math.max(1, limit | 0);
-	var idx = 0;
-	var running = 0;
-	var out = new Array(list.length);
-	return new Promise(function (resolve, reject) {
-		function pump() {
-			if (idx >= list.length && running === 0) {
-				resolve(out);
-				return;
-			}
-			while (running < limit && idx < list.length) {
-				(function (i) {
-					running++;
-					Promise.resolve(mapper(list[i], i)).then(function (v) {
-						out[i] = v;
-						running--;
-						pump();
-					}).catch(function (e) {
-						reject(e);
-					});
-				})(idx++);
-			}
-		}
-		pump();
-	});
-}
+/* luci-app-bandix drawIncrementsChart: TX=upload orange, RX=download cyan */
+var BPLUS_HIST_COLOR_UP = '#f97316';
+var BPLUS_HIST_COLOR_DOWN = '#06b6d4';
+var BPLUS_HIST_STROKE_UP = '#ea580c';
+var BPLUS_HIST_STROKE_DOWN = '#0891b2';
 
 function getThemeMode() {
 	var theme = uci.get('luci', 'main', 'mediaurlbase');
@@ -307,7 +327,7 @@ function ensureCss() {
 			'id': 'bplus-status-css',
 			'rel': 'stylesheet',
 			'type': 'text/css',
-			'href': L.resource('bandix_plus/status.css', '?v=29')
+			'href': L.resource('bandix_plus/status.css', '?v=30')
 		}));
 	}
 	ensureLayoutCss();
@@ -351,6 +371,8 @@ return view.extend({
 		this.chartScale = 1;
 		this.chartOffset = 0;
 		this.chartHoverIndex = null;
+		/* luci-app-bandix historyHover: pause trend poll while pointer on chart (desktop). */
+		this.trendChartPauseRefresh = false;
 		this.statsHoverIndex = null;
 		this.rate = {
 			policy: [],
@@ -370,6 +392,58 @@ return view.extend({
 
 	applyPeriod: function (v) {
 		return v === 'all' ? '' : v;
+	},
+
+	updateStatsHistogramTimeline: function () {
+		var timeline = this.el.statsTimeline;
+		var timelineRange = this.el.statsTimelineRange;
+		var startStr = this.el.statsStart.value;
+		var endStr = this.el.statsEnd.value;
+		if (!timeline || !timelineRange || !startStr || !endStr) return;
+		var today = new Date();
+		today.setHours(0, 0, 0, 0);
+		var todayMs = today.getTime();
+		var startMs = new Date(startStr + 'T00:00:00').getTime();
+		var endMs = new Date(endStr + 'T23:59:59').getTime();
+		var oneYearAgoMs = todayMs - 365 * 24 * 60 * 60 * 1000;
+		var totalRange = todayMs - oneYearAgoMs;
+		var selectedRange = endMs - startMs;
+		var leftPercent = Math.max(0, ((startMs - oneYearAgoMs) / totalRange) * 100);
+		var widthPercent = Math.min(100, (selectedRange / totalRange) * 100);
+		timelineRange.style.left = leftPercent + '%';
+		timelineRange.style.width = widthPercent + '%';
+	},
+
+	updateStatsHistogramSummary: function () {
+		var el = this.el.statsHistogramTimerange;
+		if (!el) return;
+		var start = dateStartMs(this.el.statsStart.value);
+		var end = dateEndMs(this.el.statsEnd.value);
+		if (start == null || end == null) {
+			el.textContent = '';
+			if (this.el.statsSummaryUpVal) this.el.statsSummaryUpVal.textContent = '—';
+			if (this.el.statsSummaryDownVal) this.el.statsSummaryDownVal.textContent = '—';
+			if (this.el.statsSummaryTotalVal) this.el.statsSummaryTotalVal.textContent = '—';
+			return;
+		}
+		var data = this.histogram || [];
+		var up = 0;
+		var down = 0;
+		for (var i = 0; i < data.length; i++) {
+			up += sumUpBytes(data[i]);
+			down += sumDownBytes(data[i]);
+		}
+		var total = up + down;
+		var rangeStr = formatSlashDateTimeRange(start, end);
+		el.textContent = rangeStr + ' · ↑' + formatBytes(up) + ' · ↓' + formatBytes(down) + ' · ' + formatBytes(total) + ' · ' + String(data.length) + ' ' + _('entries');
+		if (this.el.statsSummaryUpVal) this.el.statsSummaryUpVal.textContent = formatBytes(up);
+		if (this.el.statsSummaryDownVal) this.el.statsSummaryDownVal.textContent = formatBytes(down);
+		if (this.el.statsSummaryTotalVal) this.el.statsSummaryTotalVal.textContent = formatBytes(total);
+	},
+
+	queryStatsIfIfaceSelected: function () {
+		if (!this.el.statsIface || !this.el.statsIface.value) return;
+		this.queryStats();
 	},
 
 	setBusy: function (btn, busy) {
@@ -453,7 +527,7 @@ return view.extend({
 		if (down < 0) down = 0;
 		if (up * 8 > BPLUS_TREND_MAX_RATE_BPS) up = BPLUS_TREND_MAX_RATE_BPS / 8;
 		if (down * 8 > BPLUS_TREND_MAX_RATE_BPS) down = BPLUS_TREND_MAX_RATE_BPS / 8;
-		return { ts_ms: asNum(x.ts_ms), up: up, down: down };
+		return { ts_ms: asNum(x.ts_ms), up: up, down: down, raw: x };
 	},
 
 	refreshTrend: function (showErr) {
@@ -464,6 +538,8 @@ return view.extend({
 			if (this.el.trendCount) this.el.trendCount.textContent = '0 ' + _('entries');
 			return Promise.resolve();
 		}
+		if (this.trendChartPauseRefresh)
+			return Promise.resolve();
 		var mac = this.selectedTrendMac || '';
 		var tt = this.selectedTrendType === 'all' ? '' : (this.selectedTrendType || '');
 		return callGetTrend(this.selectedIface, mac, tt, '')
@@ -917,8 +993,9 @@ return view.extend({
 		pw = cw - pad.l - pad.r;
 		canvas.__trendPadL = pad.l;
 
-		ctx.strokeStyle = 'rgba(130,130,130,0.28)';
-		ctx.lineWidth = 1;
+		var isMobile = cw <= 768;
+		ctx.strokeStyle = 'rgba(148,163,184,0.08)';
+		ctx.lineWidth = 0.8;
 		for (var gy = 0; gy <= 4; gy++) {
 			var y = pad.t + (ph * gy / 4);
 			ctx.beginPath();
@@ -942,34 +1019,69 @@ return view.extend({
 			return pad.t + ph - (v / maxV) * ph;
 		}
 
-		ctx.lineWidth = 2;
-		ctx.strokeStyle = '#f97316';
-		ctx.beginPath();
-		for (var u = 0; u < view.length; u++) {
-			var ux = toX(u), uy = toY(view[u].up);
-			if (u === 0) ctx.moveTo(ux, uy);
-			else ctx.lineTo(ux, uy);
+		/* luci-app-bandix drawHistoryChart: area fill + thin stroke (upload under download) */
+		function drawAreaSeries(getVal, strokeColor, gradientFrom, gradientTo) {
+			if (!view.length) return;
+			var n = view.length;
+			ctx.beginPath();
+			for (var k = 0; k < n; k++) {
+				var val = Math.max(0, getVal(view[k]));
+				var xk = toX(k);
+				var yk = toY(val);
+				if (k === 0) ctx.moveTo(xk, yk);
+				else ctx.lineTo(xk, yk);
+			}
+			ctx.lineTo(pad.l + pw, pad.t + ph);
+			ctx.lineTo(pad.l, pad.t + ph);
+			ctx.closePath();
+			var grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + ph);
+			grad.addColorStop(0, gradientFrom);
+			grad.addColorStop(1, gradientTo);
+			ctx.fillStyle = grad;
+			ctx.fill();
+			ctx.beginPath();
+			for (var k2 = 0; k2 < n; k2++) {
+				var val2 = Math.max(0, getVal(view[k2]));
+				var x2 = toX(k2);
+				var y2 = toY(val2);
+				if (k2 === 0) ctx.moveTo(x2, y2);
+				else ctx.lineTo(x2, y2);
+			}
+			ctx.strokeStyle = strokeColor;
+			ctx.lineWidth = isMobile ? 1.5 : 1.2;
+			ctx.stroke();
 		}
-		ctx.stroke();
 
-		ctx.strokeStyle = '#06b6d4';
-		ctx.beginPath();
-		for (var d = 0; d < view.length; d++) {
-			var dx = toX(d), dy = toY(view[d].down);
-			if (d === 0) ctx.moveTo(dx, dy);
-			else ctx.lineTo(dx, dy);
-		}
-		ctx.stroke();
+		drawAreaSeries(function (pt) { return pt.up; }, BPLUS_HIST_COLOR_UP, 'rgba(249,115,22,0.16)', 'rgba(249,115,22,0.02)');
+		drawAreaSeries(function (pt) { return pt.down; }, BPLUS_HIST_COLOR_DOWN, 'rgba(6,182,212,0.12)', 'rgba(6,182,212,0.02)');
 
-		if (typeof this.chartHoverIndex === 'number') {
-			var hi = this.chartHoverIndex - start;
-			if (hi >= 0 && hi < view.length) {
-				var hx = toX(hi);
-				ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+		/* luci-app-bandix: vertical dash at hover x; map by time so decimated view still aligns */
+		if (!isMobile && typeof this.chartHoverIndex === 'number' && view.length) {
+			var hIdx = this.chartHoverIndex;
+			if (hIdx >= start && hIdx < end) {
+				var hPt = this.trend[hIdx];
+				var t0 = asNum(view[0].ts_ms);
+				var t1 = asNum(view[view.length - 1].ts_ms);
+				var tH = asNum(hPt.ts_ms);
+				var hx;
+				if (view.length <= 1 || t1 === t0)
+					hx = toX(0);
+				else {
+					var fr = (tH - t0) / (t1 - t0);
+					if (fr < 0) fr = 0;
+					if (fr > 1) fr = 1;
+					hx = pad.l + fr * pw;
+				}
+				ctx.save();
+				ctx.strokeStyle = 'rgba(156,163,175,0.9)';
+				ctx.lineWidth = 1;
+				ctx.setLineDash([6, 4]);
 				ctx.beginPath();
 				ctx.moveTo(hx, pad.t);
-				ctx.lineTo(hx, ch - pad.b);
+				ctx.lineTo(hx, pad.t + ph);
 				ctx.stroke();
+				ctx.setLineDash([]);
+				ctx.restore();
 			}
 		}
 
@@ -985,10 +1097,77 @@ return view.extend({
 		if (tooltip && typeof this.chartHoverIndex !== 'number') tooltip.style.display = 'none';
 	},
 
+	buildTrendTooltipHtml: function (p) {
+		var raw = p.raw;
+		var lines = [];
+		function row(label, val) {
+			lines.push('<div class="ht-row"><span class="ht-key">' + label + '</span><span class="ht-val">' + val + '</span></div>');
+		}
+		lines.push('<div class="ht-title">' + msToTimeLabel(p.ts_ms) + '</div>');
+
+		var tt = String(this.selectedTrendType || 'all');
+		var upLbl = _('Total Upload');
+		var downLbl = _('Total Download');
+		if (tt === 'ipv4') {
+			upLbl = _('IPv4') + ' ' + _('Upload');
+			downLbl = _('IPv4') + ' ' + _('Download');
+		} else if (tt === 'ipv6') {
+			upLbl = _('IPv6') + ' ' + _('Upload');
+			downLbl = _('IPv6') + ' ' + _('Download');
+		}
+
+		lines.push(
+			'<div class="ht-kpis">' +
+			'<div class="ht-kpi up"><div class="ht-k-label">' + upLbl + '</div><div class="ht-k-value">' + formatRate(p.up) + '</div></div>' +
+			'<div class="ht-kpi down"><div class="ht-k-label">' + downLbl + '</div><div class="ht-k-value">' + formatRate(p.down) + '</div></div>' +
+			'</div>'
+		);
+
+		if (tt === 'all') {
+			lines.push('<div class="ht-section-title">' + _('Other Rates') + '</div>');
+			row(_('IPv4') + ' ' + _('Upload'), formatBpsAsByteRate(raw.up_v4_bps));
+			row(_('IPv4') + ' ' + _('Download'), formatBpsAsByteRate(raw.down_v4_bps));
+			row(_('IPv6') + ' ' + _('Upload'), formatBpsAsByteRate(raw.up_v6_bps));
+			row(_('IPv6') + ' ' + _('Download'), formatBpsAsByteRate(raw.down_v6_bps));
+		} else if (tt === 'ipv4') {
+			lines.push('<div class="ht-section-title">' + _('Other Rates') + '</div>');
+			row(_('IPv6') + ' ' + _('Upload'), formatBpsAsByteRate(raw.up_v6_bps));
+			row(_('IPv6') + ' ' + _('Download'), formatBpsAsByteRate(raw.down_v6_bps));
+		} else if (tt === 'ipv6') {
+			lines.push('<div class="ht-section-title">' + _('Other Rates') + '</div>');
+			row(_('IPv4') + ' ' + _('Upload'), formatBpsAsByteRate(raw.up_v4_bps));
+			row(_('IPv4') + ' ' + _('Download'), formatBpsAsByteRate(raw.down_v4_bps));
+		}
+
+		lines.push('<div class="ht-divider"></div>');
+		lines.push('<div class="ht-section-title">' + _('Cumulative') + '</div>');
+		var cu4u = asNum(raw.up_v4_bytes_cumulative);
+		var cu4d = asNum(raw.down_v4_bytes_cumulative);
+		var cu6u = asNum(raw.up_v6_bytes_cumulative);
+		var cu6d = asNum(raw.down_v6_bytes_cumulative);
+		row(_('IPv4') + ' ' + _('Uploaded'), formatBytes(cu4u));
+		row(_('IPv4') + ' ' + _('Downloaded'), formatBytes(cu4d));
+		row(_('IPv6') + ' ' + _('Uploaded'), formatBytes(cu6u));
+		row(_('IPv6') + ' ' + _('Downloaded'), formatBytes(cu6d));
+		row(_('Total Uploaded'), formatBytes(cu4u + cu6u));
+		row(_('Total Downloaded'), formatBytes(cu4d + cu6d));
+		return lines.join('');
+	},
+
+	handleTrendEnter: function () {
+		var w = window.innerWidth || document.documentElement.clientWidth || 0;
+		if (w <= 768)
+			return;
+		this.trendChartPauseRefresh = true;
+	},
+
 	handleTrendMove: function (ev) {
 		var canvas = this.el.trendCanvas;
 		var tooltip = this.el.trendTooltip;
 		if (!canvas || !this.trend.length || !canvas.__viewRange) return;
+		var w = window.innerWidth || document.documentElement.clientWidth || 0;
+		if (w > 768)
+			this.trendChartPauseRefresh = true;
 		var rect = canvas.getBoundingClientRect();
 		var x = ev.clientX - rect.left;
 		var padL = typeof canvas.__trendPadL === 'number' ? canvas.__trendPadL : 40;
@@ -1009,24 +1188,32 @@ return view.extend({
 
 		var p = this.trend[idx];
 		if (!p || !tooltip) return;
-		tooltip.innerHTML =
-			'<div class="bplus-tip-title">' + new Date(p.ts_ms).toLocaleString() + '</div>' +
-			'<div class="bplus-tip-row"><span>' + _('Upload') + '</span><strong>' + formatRate(p.up) + '</strong></div>' +
-			'<div class="bplus-tip-row"><span>' + _('Download') + '</span><strong>' + formatRate(p.down) + '</strong></div>';
+		tooltip.innerHTML = this.buildTrendTooltipHtml(p);
 		tooltip.style.display = 'block';
-		var tw = tooltip.offsetWidth || 220;
-		var th = tooltip.offsetHeight || 80;
-		var tx = ev.clientX + 18;
-		var ty = ev.clientY - th - 14;
-		if (tx + tw > window.innerWidth) tx = ev.clientX - tw - 18;
-		if (tx < 6) tx = 6;
-		if (ty < 6) ty = ev.clientY + 18;
-		tooltip.style.left = tx + 'px';
-		tooltip.style.top = ty + 'px';
+		tooltip.offsetHeight;
+		var tw = tooltip.offsetWidth || 280;
+		var th = tooltip.offsetHeight || 200;
+		var tooltipX = ev.clientX + 20;
+		var tooltipY = ev.clientY - th - 20;
+		if (tooltipY < 0)
+			tooltipY = ev.clientY + 20;
+		if (tooltipX + tw > window.innerWidth)
+			tooltipX = ev.clientX - tw - 20;
+		if (tooltipX < 0)
+			tooltipX = 10;
+		if (tooltipY < 0)
+			tooltipY = 10;
+		if (tooltipY + th > window.innerHeight)
+			tooltipY = window.innerHeight - th - 10;
+		tooltip.style.left = tooltipX + 'px';
+		tooltip.style.top = tooltipY + 'px';
 	},
 
 	handleTrendLeave: function () {
+		this.trendChartPauseRefresh = false;
 		this.chartHoverIndex = null;
+		this.chartScale = 1;
+		this.chartOffset = 0;
 		if (this.el.trendTooltip) this.el.trendTooltip.style.display = 'none';
 		this.drawTrendChart();
 	},
@@ -1381,14 +1568,6 @@ return view.extend({
 		}
 	},
 
-	collectHistogramTotal: function (buckets) {
-		var total = 0;
-		for (var i = 0; i < buckets.length; i++) {
-			total += asNum(buckets[i].up_v4_bytes) + asNum(buckets[i].up_v6_bytes) + asNum(buckets[i].down_v4_bytes) + asNum(buckets[i].down_v6_bytes);
-		}
-		return total;
-	},
-
 	drawStatsChart: function () {
 		var canvas = this.el.statsCanvas;
 		if (!canvas) return;
@@ -1414,12 +1593,17 @@ return view.extend({
 		}
 		var pad = { l: 44, r: 16, t: 16, b: 30 };
 		var ph = h - pad.t - pad.b;
-		var vals = [];
+		var valsUp = [];
+		var valsDown = [];
 		var maxV = 1;
-		for (var i = 0; i < data.length; i++) {
-			var v = asNum(data[i].up_v4_bytes) + asNum(data[i].up_v6_bytes) + asNum(data[i].down_v4_bytes) + asNum(data[i].down_v6_bytes);
-			vals.push(v);
-			if (v > maxV) maxV = v;
+		for (var vi = 0; vi < data.length; vi++) {
+			var row0 = data[vi];
+			var u = sumUpBytes(row0);
+			var d = sumDownBytes(row0);
+			valsUp.push(u);
+			valsDown.push(d);
+			var tot = u + d;
+			if (tot > maxV) maxV = tot;
 		}
 
 		ctx.fillStyle = '#8a8a8a';
@@ -1450,16 +1634,41 @@ return view.extend({
 			ctx.fillText(formatBytes(value), pad.l - 10, pad.t + ph * ty / 4 + 4);
 		}
 
-		var barW = pw / vals.length;
-		ctx.fillStyle = '#28a8b9';
+		function px(v) { return Math.round(v); }
+		function pxStroke(v) { return Math.round(v) + 0.5; }
+
+		var barW = pw / data.length;
+		var baseY = pad.t + ph;
 		canvas.__bars = [];
-		for (var b = 0; b < vals.length; b++) {
-			var bh = maxV > 0 ? ph * vals[b] / maxV : 0;
+		for (var b = 0; b < data.length; b++) {
+			var upV = valsUp[b];
+			var downV = valsDown[b];
+			var totalV = upV + downV;
+			var downH = maxV > 0 ? ph * downV / maxV : 0;
+			var upH = maxV > 0 ? ph * upV / maxV : 0;
+			var totalH = downH + upH;
 			var bx = pad.l + b * barW + Math.max(1, barW * 0.12);
 			var bw = Math.max(1, barW * 0.76);
-			var by = pad.t + ph - bh;
-			ctx.fillRect(bx, by, bw, bh);
-			canvas.__bars.push({ x: bx, y: by, w: bw, h: bh, index: b, value: vals[b] });
+			var by = baseY - totalH;
+
+			if (downH > 0) {
+				var rxY = baseY - downH;
+				ctx.fillStyle = BPLUS_HIST_COLOR_DOWN;
+				ctx.fillRect(px(bx), px(rxY), px(bw), px(downH));
+				ctx.strokeStyle = BPLUS_HIST_STROKE_DOWN;
+				ctx.lineWidth = 1;
+				ctx.strokeRect(pxStroke(bx), pxStroke(rxY), px(bw), px(downH));
+			}
+			if (upH > 0) {
+				var txY = baseY - totalH;
+				ctx.fillStyle = BPLUS_HIST_COLOR_UP;
+				ctx.fillRect(px(bx), px(txY), px(bw), px(upH));
+				ctx.strokeStyle = BPLUS_HIST_STROKE_UP;
+				ctx.lineWidth = 1;
+				ctx.strokeRect(pxStroke(bx), pxStroke(txY), px(bw), px(upH));
+			}
+
+			canvas.__bars.push({ x: bx, y: by, w: bw, h: totalH, index: b, value: totalV });
 		}
 
 		if (data.length) {
@@ -1469,6 +1678,52 @@ return view.extend({
 			ctx.textAlign = 'right';
 			ctx.fillText(new Date(data[data.length - 1].start_ts_ms).toLocaleDateString(), w - pad.r, h - 8);
 		}
+	},
+
+	buildStatsHistogramTooltipHtml: function (row) {
+		var startMs = asNum(row.start_ts_ms);
+		var endMs = row.end_ts_ms != null ? asNum(row.end_ts_ms) : startMs;
+		var timeStr = formatStatsHistTooltipTimeRange(startMs, endMs);
+		var upB = sumUpBytes(row);
+		var downB = sumDownBytes(row);
+		var html = '<div class="traffic-increments-tooltip-title">' + timeStr + '</div>';
+		html += '<div class="ht-kpis">' +
+			'<div class="ht-kpi up"><div class="ht-k-label">' + _('Upload') + '</div><div class="ht-k-value">' + formatBytes(upB) + '</div></div>' +
+			'<div class="ht-kpi down"><div class="ht-k-label">' + _('Download') + '</div><div class="ht-k-value">' + formatBytes(downB) + '</div></div>' +
+			'</div>';
+		html += '<div class="ht-divider"></div>';
+
+		function familyBlock(familyTitle, upBytes, downBytes, upAvg, upP95, upMax, upMin, downAvg, downP95, downMax, downMin) {
+			var b = '<div class="traffic-increments-tooltip-section bplus-hist-tooltip-col">';
+			b += '<div class="traffic-increments-tooltip-section-title">' + familyTitle + '</div>';
+			b += '<div class="ht-kpis">' +
+				'<div class="ht-kpi up"><div class="ht-k-label">' + _('Upload') + '</div><div class="ht-k-value">' + formatBytes(upBytes) + '</div></div>' +
+				'<div class="ht-kpi down"><div class="ht-k-label">' + _('Download') + '</div><div class="ht-k-value">' + formatBytes(downBytes) + '</div></div>' +
+				'</div>';
+			b += '<div class="ht-divider"></div>';
+			b += '<div class="ht-section-title">' + _('Upload Statistics') + '</div>';
+			b += '<div class="ht-row"><span class="ht-key">' + _('Average') + '</span><span class="ht-val">' + formatBpsAsByteRate(upAvg) + '</span></div>';
+			b += '<div class="ht-row"><span class="ht-key">' + _('P95') + '</span><span class="ht-val">' + formatBpsAsByteRate(upP95) + '</span></div>';
+			b += '<div class="ht-row"><span class="ht-key">' + _('Maximum') + '</span><span class="ht-val">' + formatBpsAsByteRate(upMax) + '</span></div>';
+			b += '<div class="ht-row"><span class="ht-key">' + _('Minimum') + '</span><span class="ht-val">' + formatBpsAsByteRate(upMin) + '</span></div>';
+			b += '<div class="ht-section-title bplus-hist-tooltip-dlstats-title">' + _('Download Statistics') + '</div>';
+			b += '<div class="ht-row"><span class="ht-key">' + _('Average') + '</span><span class="ht-val">' + formatBpsAsByteRate(downAvg) + '</span></div>';
+			b += '<div class="ht-row"><span class="ht-key">' + _('P95') + '</span><span class="ht-val">' + formatBpsAsByteRate(downP95) + '</span></div>';
+			b += '<div class="ht-row"><span class="ht-key">' + _('Maximum') + '</span><span class="ht-val">' + formatBpsAsByteRate(downMax) + '</span></div>';
+			b += '<div class="ht-row"><span class="ht-key">' + _('Minimum') + '</span><span class="ht-val">' + formatBpsAsByteRate(downMin) + '</span></div>';
+			b += '</div>';
+			return b;
+		}
+
+		html += '<div class="bplus-hist-tooltip-families">';
+		html += familyBlock(_('IPv4'), asNum(row.up_v4_bytes), asNum(row.down_v4_bytes),
+			row.up_v4_bps_avg, row.up_v4_bps_p95, row.up_v4_bps_max, row.up_v4_bps_min,
+			row.down_v4_bps_avg, row.down_v4_bps_p95, row.down_v4_bps_max, row.down_v4_bps_min);
+		html += familyBlock(_('IPv6'), asNum(row.up_v6_bytes), asNum(row.down_v6_bytes),
+			row.up_v6_bps_avg, row.up_v6_bps_p95, row.up_v6_bps_max, row.up_v6_bps_min,
+			row.down_v6_bps_avg, row.down_v6_bps_p95, row.down_v6_bps_max, row.down_v6_bps_min);
+		html += '</div>';
+		return html;
 	},
 
 	handleStatsMove: function (ev) {
@@ -1492,21 +1747,25 @@ return view.extend({
 			return;
 		}
 		var row = this.histogram[hit.index] || {};
-		tip.innerHTML =
-			'<div class="bplus-tip-title">' + new Date(row.start_ts_ms || 0).toLocaleString() + '</div>' +
-			'<div class="bplus-tip-row"><span>' + _('Total') + '</span><strong>' + formatBytes(hit.value) + '</strong></div>' +
-			'<div class="bplus-tip-row"><span>' + _('Upload') + '</span><strong>' + formatBytes(sumUpBytes(row)) + '</strong></div>' +
-			'<div class="bplus-tip-row"><span>' + _('Download') + '</span><strong>' + formatBytes(sumDownBytes(row)) + '</strong></div>';
+		tip.innerHTML = this.buildStatsHistogramTooltipHtml(row);
 		tip.style.display = 'block';
-		var tw = tip.offsetWidth || 220;
-		var th = tip.offsetHeight || 100;
-		var tx = ev.clientX + 18;
-		var ty = ev.clientY - th - 14;
-		if (tx + tw > window.innerWidth) tx = ev.clientX - tw - 18;
-		if (tx < 6) tx = 6;
-		if (ty < 6) ty = ev.clientY + 18;
-		tip.style.left = tx + 'px';
-		tip.style.top = ty + 'px';
+		tip.offsetHeight;
+		var tw = tip.offsetWidth || 280;
+		var th = tip.offsetHeight || 200;
+		var tooltipX = ev.clientX + 20;
+		var tooltipY = ev.clientY - th - 20;
+		if (tooltipY < 0)
+			tooltipY = ev.clientY + 20;
+		if (tooltipX + tw > window.innerWidth)
+			tooltipX = ev.clientX - tw - 20;
+		if (tooltipX < 0)
+			tooltipX = 10;
+		if (tooltipY < 0)
+			tooltipY = 10;
+		if (tooltipY + th > window.innerHeight)
+			tooltipY = window.innerHeight - th - 10;
+		tip.style.left = tooltipX + 'px';
+		tip.style.top = tooltipY + 'px';
 	},
 
 	handleStatsLeave: function () {
@@ -1528,7 +1787,6 @@ return view.extend({
 		}
 
 		this.setBusy(this.el.statsQuery, true);
-		dom.content(this.el.rankBody, [ E('tr', {}, [ E('td', { 'colspan': '4', 'class': 'bplus-empty' }, [ _('Loading...') ]) ]) ]);
 
 		var macF = this.el.statsMacSelect ? (this.el.statsMacSelect.value || '').trim() : '';
 		var tt = this.el.statsTrafficTypeSelect ? (this.el.statsTrafficTypeSelect.value || 'all') : 'all';
@@ -1539,48 +1797,11 @@ return view.extend({
 			.then(L.bind(function (hist) {
 				this.histogram = hist || [];
 				this.drawStatsChart();
-				if (this.el.histogramCount) {
-					this.el.histogramCount.textContent = String((this.histogram || []).length) + ' ' + _('entries');
-				}
-				return callGetDevices(iface, '').then(function (r) { return unwrapData(r, []); });
-			}, this))
-			.then(L.bind(function (devices) {
-				var self = this;
-				var list = devices || [];
-				return mapLimit(list, 8, function (dev) {
-					return callGetHistogram(iface, dev.mac, tt || 'all', String(start), String(end), 'daily')
-						.then(function (r) { return unwrapData(r, []); })
-						.then(function (b) {
-							return {
-								dev: dev,
-								total: self.collectHistogramTotal(b || [])
-							};
-						}).catch(function () {
-							return { dev: dev, total: 0 };
-						});
-				});
-			}, this))
-			.then(L.bind(function (items) {
-				items.sort(function (a, b) { return b.total - a.total; });
-				dom.content(this.el.rankBody, []);
-				if (!items.length) {
-					this.el.rankBody.appendChild(E('tr', {}, [ E('td', { 'colspan': '4', 'class': 'bplus-empty' }, [ _('No data') ]) ]));
-					return;
-				}
-				var top = items.slice(0, 20);
-				for (var i = 0; i < top.length; i++) {
-					var d = top[i].dev || {};
-					this.el.rankBody.appendChild(E('tr', {}, [
-						E('td', {}, [ String(i + 1) ]),
-						E('td', {}, [ (d.hostname || '—') + ' / ' + (d.mac || '—') ]),
-						E('td', {}, [ d.logical_iface || '—' ]),
-						E('td', {}, [ formatBytes(top[i].total) ])
-					]));
-				}
+				this.updateStatsHistogramSummary();
+				this.updateStatsHistogramTimeline();
 			}, this))
 			.catch(L.bind(function (e) {
 				this.notifyError(_('Failed to query statistics'), e);
-				dom.content(this.el.rankBody, [ E('tr', {}, [ E('td', { 'colspan': '4', 'class': 'bplus-empty' }, [ _('Failed') ]) ]) ]);
 			}, this))
 			.then(L.bind(function () {
 				this.setBusy(this.el.statsQuery, false);
@@ -1589,30 +1810,82 @@ return view.extend({
 			}, this));
 	},
 
-	applyStatsPreset: function (kind) {
+	applyStatsPreset: function (kind, runQuery) {
 		var now = new Date();
+		var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		var todayMs = today.getTime();
 		var start, end;
-		if (kind === 'today') {
-			start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-			end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-		}
-		else if (kind === 'week') {
-			start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-			end = now;
-		}
-		else if (kind === 'month') {
-			start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
-			end = now;
-		}
-		else if (kind === 'year') {
-			start = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate() + 1);
-			end = now;
-		}
-		else {
+
+		switch (kind) {
+		case 'today':
+			start = new Date(today);
+			end = new Date(today);
+			break;
+		case 'thisweek':
+			var dayOfWeek = now.getDay();
+			var mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+			start = new Date(todayMs + mondayOffset * 86400000);
+			start.setHours(0, 0, 0, 0);
+			end = new Date(today);
+			break;
+		case 'lastweek':
+			var lastWeekDayOfWeek = now.getDay();
+			var lastWeekMondayOffset = lastWeekDayOfWeek === 0 ? -13 : -6 - lastWeekDayOfWeek;
+			start = new Date(todayMs + lastWeekMondayOffset * 86400000);
+			start.setHours(0, 0, 0, 0);
+			end = new Date(start);
+			end.setDate(end.getDate() + 6);
+			break;
+		case 'thismonth':
+			start = new Date(now.getFullYear(), now.getMonth(), 1);
+			end = new Date(today);
+			break;
+		case 'lastmonth':
+			var lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+			start = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
+			end = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0);
+			break;
+		case '7days':
+			start = new Date(todayMs - 6 * 86400000);
+			end = new Date(today);
+			break;
+		case '30days':
+			start = new Date(todayMs - 29 * 86400000);
+			end = new Date(today);
+			break;
+		case '90days':
+			start = new Date(todayMs - 89 * 86400000);
+			end = new Date(today);
+			break;
+		case '1year':
+			start = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+			end = new Date(today);
+			break;
+		default:
 			return;
 		}
-		this.el.statsStart.value = start.toISOString().slice(0, 10);
-		this.el.statsEnd.value = end.toISOString().slice(0, 10);
+
+		this.el.statsStart.value = formatDateInput(start);
+		this.el.statsEnd.value = formatDateInput(end);
+
+		var presetPairs = [
+			['today', this.el.presetToday],
+			['thisweek', this.el.presetThisWeek],
+			['lastweek', this.el.presetLastWeek],
+			['thismonth', this.el.presetThisMonth],
+			['lastmonth', this.el.presetLastMonth],
+			['7days', this.el.preset7Days],
+			['30days', this.el.preset30Days],
+			['90days', this.el.preset90Days],
+			['1year', this.el.preset1Year]
+		];
+		for (var pi = 0; pi < presetPairs.length; pi++) {
+			var active = presetPairs[pi][0] === kind;
+			presetPairs[pi][1].className = 'cbi-button cbi-button-' + (active ? 'positive' : 'neutral');
+		}
+		this.updateStatsHistogramTimeline();
+		if (runQuery)
+			this.queryStats();
 	},
 
 	bindEvents: function () {
@@ -1656,9 +1929,20 @@ return view.extend({
 		if (this.el.statsIface) {
 			this.el.statsIface.addEventListener('change', L.bind(function () {
 				this.renderStatsMacOptions();
+				this.queryStatsIfIfaceSelected();
 			}, this));
 		}
+		if (this.el.statsTrafficTypeSelect) {
+			this.el.statsTrafficTypeSelect.addEventListener('change', L.bind(this.queryStatsIfIfaceSelected, this));
+		}
+		if (this.el.statsBucket) {
+			this.el.statsBucket.addEventListener('change', L.bind(this.queryStatsIfIfaceSelected, this));
+		}
+		if (this.el.statsMacSelect) {
+			this.el.statsMacSelect.addEventListener('change', L.bind(this.queryStatsIfIfaceSelected, this));
+		}
 
+		this.el.trendCanvas.addEventListener('mouseenter', L.bind(this.handleTrendEnter, this));
 		this.el.trendCanvas.addEventListener('mousemove', L.bind(this.handleTrendMove, this));
 		this.el.trendCanvas.addEventListener('mouseleave', L.bind(this.handleTrendLeave, this));
 		this.el.trendCanvas.addEventListener('wheel', L.bind(this.handleTrendWheel, this), { passive: false });
@@ -1678,10 +1962,28 @@ return view.extend({
 		this.el.whitelistForm.addEventListener('submit', L.bind(this.submitWhitelist, this));
 
 		this.el.statsQuery.addEventListener('click', L.bind(this.queryStats, this));
-		this.el.presetToday.addEventListener('click', L.bind(function () { this.applyStatsPreset('today'); }, this));
-		this.el.presetWeek.addEventListener('click', L.bind(function () { this.applyStatsPreset('week'); }, this));
-		this.el.presetMonth.addEventListener('click', L.bind(function () { this.applyStatsPreset('month'); }, this));
-		this.el.presetYear.addEventListener('click', L.bind(function () { this.applyStatsPreset('year'); }, this));
+		this.el.statsReset.addEventListener('click', L.bind(function () {
+			this.applyStatsPreset('1year', true);
+		}, this));
+		this.el.statsStart.addEventListener('change', L.bind(this.updateStatsHistogramTimeline, this));
+		this.el.statsEnd.addEventListener('change', L.bind(this.updateStatsHistogramTimeline, this));
+		var self = this;
+		[
+			['today', this.el.presetToday],
+			['thisweek', this.el.presetThisWeek],
+			['lastweek', this.el.presetLastWeek],
+			['thismonth', this.el.presetThisMonth],
+			['lastmonth', this.el.presetLastMonth],
+			['7days', this.el.preset7Days],
+			['30days', this.el.preset30Days],
+			['90days', this.el.preset90Days],
+			['1year', this.el.preset1Year]
+		].forEach(function (row) {
+			var presetKind = row[0];
+			row[1].addEventListener('click', function () {
+				self.applyStatsPreset(presetKind, true);
+			});
+		});
 
 		this.el.statsCanvas.addEventListener('mousemove', L.bind(this.handleStatsMove, this));
 		this.el.statsCanvas.addEventListener('mouseleave', L.bind(this.handleStatsLeave, this));
@@ -1719,7 +2021,7 @@ return view.extend({
 		this.el.trendCount = E('span', { 'class': 'meta-pill', 'id': 'bplus-trend-count' }, [ '0 ' + _('entries') ]);
 
 		this.el.trendCanvas = E('canvas', { 'class': 'bplus-chart-canvas' });
-		this.el.trendTooltip = E('div', { 'class': 'bplus-tooltip' });
+		this.el.trendTooltip = E('div', { 'class': 'bplus-tooltip history-tooltip' });
 		this.el.deviceHead = E('thead');
 		this.el.deviceBody = E('tbody');
 
@@ -1813,34 +2115,70 @@ return view.extend({
 			])
 		]);
 
-		this.el.statsIface = E('select', { 'class': 'cbi-input-select' });
-		this.el.statsStart = E('input', { 'class': 'cbi-input-text', 'type': 'date' });
-		this.el.statsEnd = E('input', { 'class': 'cbi-input-text', 'type': 'date' });
-		this.el.statsBucket = E('select', { 'class': 'cbi-input-select' }, [
+		this.el.statsIface = E('select', { 'class': 'cbi-input-select', 'id': 'bplus-stats-iface' });
+		this.el.statsStart = E('input', { 'class': 'cbi-input-text cbi-input-date', 'type': 'date', 'id': 'bplus-stats-start' });
+		this.el.statsEnd = E('input', { 'class': 'cbi-input-text cbi-input-date', 'type': 'date', 'id': 'bplus-stats-end' });
+		this.el.statsBucket = E('select', { 'class': 'cbi-input-select', 'id': 'bplus-stats-bucket' }, [
 			E('option', { 'value': 'hourly' }, [ _('Hourly') ]),
 			E('option', { 'value': 'daily' }, [ _('Daily') ])
 		]);
 		this.el.statsBucket.value = 'daily';
-		this.el.statsQuery = E('button', { 'class': 'btn cbi-button cbi-button-action', 'type': 'button' }, [ _('Query') ]);
-		this.el.presetToday = E('button', { 'class': 'btn cbi-button cbi-button-neutral', 'type': 'button' }, [ _('Today') ]);
-		this.el.presetWeek = E('button', { 'class': 'btn cbi-button cbi-button-neutral', 'type': 'button' }, [ _('Last 7 Days') ]);
-		this.el.presetMonth = E('button', { 'class': 'btn cbi-button cbi-button-neutral', 'type': 'button' }, [ _('Last 30 Days') ]);
-		this.el.presetYear = E('button', { 'class': 'btn cbi-button cbi-button-neutral', 'type': 'button' }, [ _('Last Year') ]);
+		this.el.statsQuery = E('button', { 'class': 'cbi-button cbi-button-action usage-ranking-query-btn', 'type': 'button', 'id': 'bplus-stats-query' }, [ E('span', {}, [ _('Query') ]) ]);
+		this.el.statsReset = E('button', { 'class': 'cbi-button cbi-button-reset', 'type': 'button', 'id': 'bplus-stats-reset' }, [ _('Reset') ]);
+		this.el.presetToday = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': 'today' }, [ _('Today') ]);
+		this.el.presetThisWeek = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': 'thisweek' }, [ _('This Week') ]);
+		this.el.presetLastWeek = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': 'lastweek' }, [ _('Last Week') ]);
+		this.el.presetThisMonth = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': 'thismonth' }, [ _('This Month') ]);
+		this.el.presetLastMonth = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': 'lastmonth' }, [ _('Last Month') ]);
+		this.el.preset7Days = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': '7days' }, [ _('Last 7 Days') ]);
+		this.el.preset30Days = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': '30days' }, [ _('Last 30 Days') ]);
+		this.el.preset90Days = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': '90days' }, [ _('Last 90 Days') ]);
+		this.el.preset1Year = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': '1year' }, [ _('Last Year') ]);
+		this.el.statsTimeline = E('div', { 'class': 'usage-ranking-timeline', 'id': 'bplus-hstats-timeline' }, [
+			this.el.statsTimelineRange = E('div', { 'class': 'usage-ranking-timeline-range', 'id': 'bplus-hstats-timeline-range' })
+		]);
+		this.el.statsHistogramTimerange = E('span', { 'class': 'usage-ranking-timerange', 'id': 'bplus-hstats-timerange' }, []);
 		this.el.statsCanvas = E('canvas', { 'class': 'bplus-chart-canvas bplus-stats-chart' });
-		this.el.statsTooltip = E('div', { 'class': 'bplus-tooltip' });
-		this.el.rankBody = E('tbody');
-		this.el.statsMacSelect = E('select', { 'class': 'cbi-input-select' }, [ E('option', { 'value': '' }, [ _('All devices') ]) ]);
-		this.el.statsTrafficTypeSelect = E('select', { 'class': 'cbi-input-select' }, [
+		this.el.statsTooltip = E('div', { 'class': 'bplus-tooltip traffic-increments-tooltip' });
+		this.el.statsLegend = E('div', { 'class': 'traffic-stats-legend' }, [
+			E('div', { 'class': 'traffic-stats-legend-item' }, [
+				E('span', { 'class': 'traffic-stats-legend-dot tx' }),
+				E('span', {}, [ _('Upload') ])
+			]),
+			E('div', { 'class': 'traffic-stats-legend-item' }, [
+				E('span', { 'class': 'traffic-stats-legend-dot rx' }),
+				E('span', {}, [ _('Download') ])
+			])
+		]);
+		this.el.statsSummaryUpVal = E('div', { 'class': 'traffic-increments-summary-value' }, [ '—' ]);
+		this.el.statsSummaryDownVal = E('div', { 'class': 'traffic-increments-summary-value' }, [ '—' ]);
+		this.el.statsSummaryTotalVal = E('div', { 'class': 'traffic-increments-summary-value' }, [ '—' ]);
+		this.el.statsSummary = E('div', { 'class': 'traffic-increments-summary' }, [
+			E('div', { 'class': 'traffic-increments-summary-item' }, [
+				E('div', { 'class': 'traffic-increments-summary-label' }, [ _('Total Upload') ]),
+				this.el.statsSummaryUpVal
+			]),
+			E('div', { 'class': 'traffic-increments-summary-item' }, [
+				E('div', { 'class': 'traffic-increments-summary-label' }, [ _('Total Download') ]),
+				this.el.statsSummaryDownVal
+			]),
+			E('div', { 'class': 'traffic-increments-summary-item' }, [
+				E('div', { 'class': 'traffic-increments-summary-label' }, [ _('Total') ]),
+				this.el.statsSummaryTotalVal
+			])
+		]);
+		this.el.statsMacSelect = E('select', { 'class': 'cbi-input-select', 'id': 'bplus-stats-mac' }, [ E('option', { 'value': '' }, [ _('All devices') ]) ]);
+		this.el.statsTrafficTypeSelect = E('select', { 'class': 'cbi-input-select', 'id': 'bplus-stats-tt' }, [
 			E('option', { 'value': 'all' }, [ _('All') ]),
 			E('option', { 'value': 'ipv4' }, [ 'IPv4' ]),
 			E('option', { 'value': 'ipv6' }, [ 'IPv6' ])
 		]);
-		this.el.histogramCount = E('span', { 'class': 'meta-pill', 'id': 'bplus-histogram-count' }, [ '0 ' + _('entries') ]);
 
-		var now = new Date();
-		var from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
-		this.el.statsStart.value = from.toISOString().slice(0, 10);
-		this.el.statsEnd.value = now.toISOString().slice(0, 10);
+		var nowWall = new Date();
+		var todayCal = new Date(nowWall.getFullYear(), nowWall.getMonth(), nowWall.getDate());
+		var from30 = new Date(todayCal.getTime() - 29 * 86400000);
+		this.el.statsStart.value = formatDateInput(from30);
+		this.el.statsEnd.value = formatDateInput(todayCal);
 		this.el.trendTypeSelect.value = this.selectedTrendType;
 
 		this.root = E('div', { 'class': 'bplus-page' }, [
@@ -1893,32 +2231,61 @@ return view.extend({
 					E('div', { 'class': 'table-wrapper' }, [ E('table', { 'class': 'table bplus-table bplus-table--devices' }, [ this.el.deviceHead, this.el.deviceBody ]) ])
 				]),
 
-				E('section', { 'class': 'bplus-panel' }, [
-					E('div', { 'class': 'bplus-panel-head' }, [
-						E('h2', {}, [ _('Histogram') ]),
-						this.el.histogramCount
+				E('section', { 'class': 'bplus-panel bplus-histogram-section' }, [
+					E('div', { 'class': 'usage-ranking-header' }, [
+						E('h4', { 'class': 'usage-ranking-title' }, [ E('span', {}, [ _('Histogram') ]) ]),
+						this.el.statsHistogramTimerange
 					]),
-					E('div', { 'class': 'bplus-stats-query-wrap' }, [
-						E('label', {}, [ _('Iface'), this.el.statsIface ]),
-						E('label', {}, [ _('Device MAC'), this.el.statsMacSelect ]),
-						E('label', {}, [ 'traffic_type', this.el.statsTrafficTypeSelect ]),
-						E('label', {}, [ _('Start'), this.el.statsStart ]),
-						E('label', {}, [ _('End'), this.el.statsEnd ]),
-						E('label', {}, [ 'bucket', this.el.statsBucket ]),
-						this.el.statsQuery,
-						this.el.presetToday,
-						this.el.presetWeek,
-						this.el.presetMonth,
-						this.el.presetYear
+					E('div', { 'class': 'traffic-increments-query' }, [
+						E('div', { 'class': 'usage-ranking-date-range-row' }, [
+							E('div', { 'class': 'usage-ranking-date-picker-wrapper' }, [
+								E('label', { 'class': 'usage-ranking-date-label', 'for': 'bplus-stats-start' }, [ _('Start Date') ]),
+								E('div', { 'class': 'usage-ranking-date-picker' }, [ this.el.statsStart ])
+							]),
+							E('span', { 'class': 'usage-ranking-date-separator' }, '→'),
+							E('div', { 'class': 'usage-ranking-date-picker-wrapper' }, [
+								E('label', { 'class': 'usage-ranking-date-label', 'for': 'bplus-stats-end' }, [ _('End Date') ]),
+								E('div', { 'class': 'usage-ranking-date-picker' }, [ this.el.statsEnd ])
+							]),
+							E('div', { 'class': 'usage-ranking-network-type-wrapper' }, [
+								E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-stats-iface' }, [ _('Iface') ]),
+								this.el.statsIface
+							]),
+							E('div', { 'class': 'usage-ranking-network-type-wrapper' }, [
+								E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-stats-tt' }, [ _('Traffic type') ]),
+								this.el.statsTrafficTypeSelect
+							]),
+							E('div', { 'class': 'usage-ranking-query-actions' }, [
+								this.el.statsQuery,
+								this.el.statsReset
+							])
+						]),
+						E('div', { 'class': 'usage-ranking-query-presets' }, [
+							this.el.presetToday,
+							this.el.presetThisWeek,
+							this.el.presetLastWeek,
+							this.el.presetThisMonth,
+							this.el.presetLastMonth,
+							this.el.preset7Days,
+							this.el.preset30Days,
+							this.el.preset90Days,
+							this.el.preset1Year
+						]),
+						this.el.statsTimeline
+					]),
+					E('div', { 'class': 'traffic-increments-filters' }, [
+						E('div', { 'class': 'traffic-increments-filter-group' }, [
+							E('label', { 'class': 'traffic-increments-filter-label', 'for': 'bplus-stats-bucket' }, [ _('Aggregation:') ]),
+							this.el.statsBucket
+						]),
+						E('div', { 'class': 'traffic-increments-filter-group' }, [
+							E('label', { 'class': 'traffic-increments-filter-label', 'for': 'bplus-stats-mac' }, [ _('Device:') ]),
+							this.el.statsMacSelect
+						])
 					]),
 					E('div', { 'class': 'bplus-chart-wrap' }, [ this.el.statsCanvas, this.el.statsTooltip ]),
-					E('h4', {}, [ _('Top device ranking') ]),
-					E('div', { 'class': 'table-wrapper' }, [
-						E('table', { 'class': 'table bplus-table' }, [
-							E('thead', {}, [ E('tr', {}, [ E('th', {}, [ '#' ]), E('th', {}, [ _('Device') ]), E('th', {}, [ _('Iface') ]), E('th', {}, [ _('Traffic') ]) ]) ]),
-							this.el.rankBody
-						])
-					])
+					this.el.statsLegend,
+					this.el.statsSummary
 				]),
 
 				E('section', { 'class': 'bplus-panel' }, [
@@ -1996,11 +2363,15 @@ return view.extend({
 		this.setThemeClass();
 		this.bindEvents();
 
+		var cap = formatDateInput(new Date());
+		this.el.statsStart.setAttribute('max', cap);
+		this.el.statsEnd.setAttribute('max', cap);
+
 		this.refreshLive(false).then(L.bind(function () {
 			if (this.el.statsIface && this.el.statsIface.value) this.queryStats();
 		}, this));
 		this.refreshRateData(false);
-		this.applyStatsPreset('month');
+		this.applyStatsPreset('30days');
 
 		poll.add(L.bind(function () {
 			this.setThemeClass();

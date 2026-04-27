@@ -100,3 +100,96 @@ msgstr "下载"
 
 msgid "Y axis: B/s (bps÷8). Wheel zooms; hover for values."
 msgstr "纵轴为字节/秒（bps÷8）。滚轮缩放时间窗，悬停查看数值。"
+
+msgid "Today"
+msgstr "今天"
+
+msgid "This Week"
+msgstr "本周"
+
+msgid "Last Week"
+msgstr "上周"
+
+msgid "This Month"
+msgstr "本月"
+
+msgid "Last Month"
+msgstr "上月"
+
+msgid "Last 7 Days"
+msgstr "最近 7 天"
+
+msgid "Last 30 Days"
+msgstr "最近 30 天"
+
+msgid "Last 90 Days"
+msgstr "最近 90 天"
+
+msgid "Last Year"
+msgstr "最近一年"
+
+msgid "Histogram"
+msgstr "直方图"
+
+msgid "Query"
+msgstr "查询"
+
+msgid "Start Date"
+msgstr "开始日期"
+
+msgid "End Date"
+msgstr "结束日期"
+
+msgid "Traffic type"
+msgstr "流量类型"
+
+msgid "Reset"
+msgstr "复位"
+
+msgid "Aggregation:"
+msgstr "聚合方式："
+
+msgid "Device:"
+msgstr "设备："
+
+msgid "entries"
+msgstr "条"
+
+msgid "Iface"
+msgstr "接口"
+
+msgid "All devices"
+msgstr "所有设备"
+
+msgid "IPv4"
+msgstr "IPv4"
+
+msgid "IPv6"
+msgstr "IPv6"
+
+msgid "Upload Statistics"
+msgstr "上行统计"
+
+msgid "Download Statistics"
+msgstr "下行统计"
+
+msgid "Average"
+msgstr "平均"
+
+msgid "Maximum"
+msgstr "最大"
+
+msgid "Minimum"
+msgstr "最小"
+
+msgid "P95"
+msgstr "P95"
+
+msgid "Total Upload"
+msgstr "总上传"
+
+msgid "Total Download"
+msgstr "总下载"
+
+msgid "Total"
+msgstr "全部"

@@ -241,6 +241,219 @@
   font-size: 14px;
 }
 
+/* Trend samples hover: same ht-* layout as luci-app-bandix history-tooltip */
+.bplus-page .bplus-tooltip.history-tooltip {
+  pointer-events: none;
+  min-width: 260px;
+  max-width: 420px;
+  padding: 12px;
+  font-size: 0.8125rem;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--bplus-border);
+  padding-bottom: 4px;
+  font-size: 0.875rem;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 2px;
+  margin-bottom: 6px;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-kpi .ht-k-label {
+  opacity: 0.7;
+  font-size: 0.75rem;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-kpi .ht-k-value {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-kpi.up .ht-k-value {
+  color: var(--bplus-up);
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-kpi.down .ht-k-value {
+  color: var(--bplus-down);
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-divider {
+  height: 1px;
+  background-color: var(--bplus-border);
+  margin: 8px 0;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-section-title {
+  font-weight: 600;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin: 4px 0 6px 0;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.8125rem;
+  margin-bottom: 2px;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-key {
+  opacity: 0.7;
+}
+
+@media (max-width: 520px) {
+  .bplus-page .bplus-tooltip.history-tooltip {
+    min-width: 220px;
+    max-width: min(100vw - 24px, 400px);
+  }
+}
+
+/* Histogram hover: same structure as luci-app-bandix traffic-increments-tooltip */
+.bplus-page .bplus-tooltip.traffic-increments-tooltip {
+  pointer-events: none;
+  min-width: 420px;
+  max-width: 560px;
+  padding: 12px;
+  font-size: 0.8125rem;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-families {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+  align-items: start;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-families .traffic-increments-tooltip-section {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-col .ht-kpis {
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-col .ht-divider {
+  margin: 6px 0;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-col .ht-section-title {
+  margin: 2px 0 4px 0;
+  font-size: 0.7rem;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-col .bplus-hist-tooltip-dlstats-title {
+  margin-top: 4px;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-col .ht-row {
+  margin-bottom: 1px;
+  font-size: 0.75rem;
+  gap: 8px;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-col .ht-kpi .ht-k-value {
+  font-size: 0.9rem;
+}
+
+@media (max-width: 520px) {
+  .bplus-page .bplus-tooltip.traffic-increments-tooltip {
+    min-width: 260px;
+    max-width: min(100vw - 24px, 360px);
+  }
+
+  .bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-families {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bplus-page .traffic-increments-tooltip .traffic-increments-tooltip-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--bplus-border);
+  padding-bottom: 4px;
+  font-size: 0.875rem;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 2px;
+  margin-bottom: 6px;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-kpi .ht-k-label {
+  opacity: 0.7;
+  font-size: 0.75rem;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-kpi .ht-k-value {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-kpi.up .ht-k-value {
+  color: var(--bplus-up);
+}
+
+.bplus-page .traffic-increments-tooltip .ht-kpi.down .ht-k-value {
+  color: var(--bplus-down);
+}
+
+.bplus-page .traffic-increments-tooltip .ht-divider {
+  height: 1px;
+  background-color: var(--bplus-border);
+  margin: 8px 0;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-section-title {
+  font-weight: 600;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin: 4px 0 6px 0;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.8125rem;
+  margin-bottom: 2px;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-key {
+  opacity: 0.7;
+}
+
+.bplus-page .traffic-increments-tooltip .traffic-increments-tooltip-section {
+  margin-bottom: 10px;
+}
+
+.bplus-page .traffic-increments-tooltip .traffic-increments-tooltip-section:last-child {
+  margin-bottom: 0;
+}
+
+.bplus-page .traffic-increments-tooltip .traffic-increments-tooltip-section-title {
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  color: var(--bplus-sub);
+  border-bottom: 1px solid var(--bplus-border);
+  padding-bottom: 2px;
+}
+
 .bplus-tip-title {
   font-weight: 700;
   margin-bottom: 6px;
@@ -387,27 +600,15 @@
 
 .bplus-form-inline input,
 .bplus-form-inline select,
-.bplus-stats-query input,
-.bplus-stats-query select {
+.bplus-histogram-section .traffic-increments-query input,
+.bplus-histogram-section .traffic-increments-query select,
+.bplus-histogram-section .traffic-increments-filters select {
   width: 100%;
   min-width: 0;
 }
 
 .bplus-form-inline .btn {
   margin: 0;
-}
-
-.bplus-stats-query {
-  display: grid;
-  grid-template-columns: 50px 1fr 42px 1fr 34px 1fr 90px 1fr repeat(5, auto);
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.bplus-stats-query label {
-  font-size: 14px;
-  color: var(--bplus-sub);
 }
 
 .bplus-page .table-wrapper {
@@ -448,9 +649,6 @@
     grid-template-columns: repeat(5, minmax(120px, 1fr));
   }
 
-  .bplus-stats-query {
-    grid-template-columns: repeat(4, minmax(120px, 1fr));
-  }
 }
 
 @media (max-width: 860px) {
@@ -458,8 +656,7 @@
     grid-template-columns: 1fr;
   }
 
-  .bplus-form-inline,
-  .bplus-stats-query {
+  .bplus-form-inline {
     grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
 
@@ -574,6 +771,18 @@
   color: var(--bplus-text);
 }
 
+/* 接口总览：与 luci-app-bandix stats-grid 三张卡 .stats-card-title 一致 */
+.bplus-page .bplus-main > .bplus-panel:first-of-type .bplus-panel-head h2 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--bplus-text);
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin: 0 0 12px 0;
+  line-height: 1.3;
+}
+
 /* 与 luci-app-bandix 类似：显式前景色，避免主题全局 h2/h3 盖掉继承色 */
 .bplus-page .bplus-main > .bplus-panel h2,
 .bplus-page .bplus-main > .bplus-panel h3,
@@ -686,8 +895,11 @@
 
 .bplus-page .overview-card__title {
   margin: 0;
-  font-size: 1.12rem;
+  /* 同 bandix 卡顶标题字号，接口名不做 uppercase */
+  font-size: 0.875rem;
   font-weight: 600;
+  opacity: 0.7;
+  letter-spacing: 0.025em;
   word-break: break-word;
   flex: 1 1 auto;
   min-width: 0;
@@ -757,12 +969,13 @@
 
 .bplus-page .overview-hero-speed__title {
   display: block;
-  font-size: 0.875rem;
-  font-weight: 600;
+  /* bandix 卡内 ↑↓ 行：0.75rem + bold */
+  font-size: 0.75rem;
+  font-weight: 700;
   line-height: 1.25;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.02em;
   color: var(--bplus-sub);
-  opacity: 0.88;
+  opacity: 0.95;
   min-width: 0;
 }
 
@@ -787,12 +1000,12 @@
 }
 
 .bplus-page .overview-hero-speed__total {
-  font-size: clamp(1.12rem, 2.35vw + 0.48rem, 1.45rem);
-  font-weight: 800;
-  line-height: 1.15;
+  /* bandix 三张卡主速率：1.125rem、700、系统无衬线 */
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.2;
   text-align: left;
   font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: nowrap;
   min-width: 0;
   max-width: 100%;
@@ -810,11 +1023,11 @@
 }
 
 .bplus-page .overview-hero-speed__cum {
-  font-size: 0.8rem;
-  font-weight: 600;
+  /* bandix 括号累计：0.75rem、#64748b 系次要色 */
+  font-size: 0.75rem;
+  font-weight: 400;
   color: var(--bplus-sub);
   font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: nowrap;
   line-height: 1.2;
   justify-self: end;
@@ -829,14 +1042,13 @@
   flex-direction: column;
   gap: 4px;
   align-items: stretch;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.4;
 }
 
 .bplus-page .overview-hero-speed__split-item {
   font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -856,7 +1068,6 @@
 
 .bplus-page .overview-hero-speed__split-rate {
   font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -928,19 +1139,225 @@
   color: var(--bplus-sub);
 }
 
-.bplus-page .bplus-stats-query-wrap {
+/* Histogram controls (layout matches luci-app-bandix Traffic Timeline) */
+.bplus-page .bplus-histogram-section .usage-ranking-header {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 10px 12px;
-  margin-bottom: 10px;
+  gap: 8px 12px;
+  margin-bottom: 12px;
 }
 
-.bplus-page .bplus-stats-query-wrap label {
-  display: grid;
-  gap: 4px;
-  font-size: 0.88rem;
+.bplus-page .bplus-histogram-section .usage-ranking-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-timerange {
+  font-size: 0.8125rem;
+  opacity: 0.75;
+  font-weight: 400;
   color: var(--bplus-sub);
+  text-align: right;
+  flex: 1;
+  min-width: min(100%, 14em);
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-query {
+  margin-bottom: 12px;
+  padding: 16px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+  border: 1px solid var(--bplus-border);
+}
+
+.bplus-page.theme-dark .bplus-histogram-section .traffic-increments-query {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-date-range-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-date-picker-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-network-type-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 120px;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-network-label,
+.bplus-page .bplus-histogram-section .usage-ranking-date-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  opacity: 0.7;
+  color: var(--bplus-sub);
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-date-separator {
+  font-size: 1.25rem;
+  opacity: 0.4;
+  margin-bottom: 28px;
+  font-weight: 300;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-query-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-query-presets {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-timeline {
+  height: 4px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+  position: relative;
+}
+
+.bplus-page.theme-dark .bplus-histogram-section .usage-ranking-timeline {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-timeline-range {
+  position: absolute;
+  height: 100%;
+  left: 0;
+  width: 0;
+  background-color: var(--bplus-accent);
+  border-radius: 2px;
+  transition: left 0.25s ease, width 0.25s ease;
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-filter-label {
+  font-size: 0.8125rem;
+  opacity: 0.7;
+  white-space: nowrap;
+  color: var(--bplus-sub);
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-filters .cbi-input-select {
+  min-width: 120px;
+}
+
+.bplus-page .bplus-histogram-section .cbi-button-reset {
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.bplus-page.theme-dark .bplus-histogram-section .cbi-button-reset {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+/* Histogram chart footer: legend + totals (luci-app-bandix traffic-increments) */
+.bplus-page .bplus-histogram-section .traffic-stats-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 8px;
+}
+
+.bplus-page .bplus-histogram-section .traffic-stats-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  color: var(--bplus-text);
+}
+
+.bplus-page .bplus-histogram-section .traffic-stats-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.bplus-page .bplus-histogram-section .traffic-stats-legend-dot.rx {
+  background-color: var(--bplus-down);
+}
+
+.bplus-page .bplus-histogram-section .traffic-stats-legend-dot.tx {
+  background-color: var(--bplus-up);
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-summary-item {
+  text-align: center;
+  padding: 12px;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--bplus-border);
+}
+
+.bplus-page.theme-dark .bplus-histogram-section .traffic-increments-summary-item {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-summary-label {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-bottom: 4px;
+  color: var(--bplus-sub);
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-summary-value {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+  .bplus-page .bplus-histogram-section .traffic-stats-legend {
+    display: none;
+  }
+
+  .bplus-page .bplus-histogram-section .traffic-increments-summary {
+    grid-template-columns: 1fr;
+  }
 }
 
 .bplus-page .bplus-section--flush {
