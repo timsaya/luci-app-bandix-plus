@@ -34,7 +34,6 @@ var callGetHistogram = rpc.declare({
 	expect: {}
 });
 
-var callGetPolicy = rpc.declare({ object: 'luci.bandix_plus', method: 'getPolicy', expect: {} });
 var callGetSchedules = rpc.declare({ object: 'luci.bandix_plus', method: 'getSchedules', expect: {} });
 var callCreateSchedule = rpc.declare({ object: 'luci.bandix_plus', method: 'createSchedule', params: [ 'payload' ], expect: {} });
 var callUpdateSchedule = rpc.declare({ object: 'luci.bandix_plus', method: 'updateSchedule', params: [ 'pair' ], expect: {} });
@@ -271,11 +270,6 @@ function msToTimeLabel(tsMs) {
 		d.getSeconds().toString().padStart(2, '0');
 }
 
-function daysText(days) {
-	if (!days || !days.length) return '—';
-	return days.join(',');
-}
-
 function formatScheduleDayLabels(days) {
 	if (!days || !days.length) return '—';
 	var labels = [ '', _('Mon'), _('Tue'), _('Wed'), _('Thu'), _('Fri'), _('Sat'), _('Sun') ];
@@ -419,7 +413,6 @@ return view.extend({
 		this.trendChartPauseRefresh = false;
 		this.statsHoverIndex = null;
 		this.rate = {
-			policy: [],
 			schedules: [],
 			ifaceLimits: [],
 			guestDefaults: [],
@@ -567,9 +560,10 @@ return view.extend({
 			this.renderStatsIfaceOptions();
 			this.renderStatsMacOptions();
 			this.renderOverviewGrid();
-			if (!this.isScheduleHubUiOpen())
+			if (!this.isScheduleHubUiOpen()) {
 				this.renderDevicesTable();
-			this.syncRateFormIfaceOptions();
+				this.syncRateFormIfaceOptions();
+			}
 			if (this.el.overviewCount) {
 				this.el.overviewCount.textContent = String(this.overview.length) + ' 条';
 			}
@@ -645,24 +639,20 @@ return view.extend({
 
 	refreshRateData: function (showErr) {
 		return Promise.all([
-			callGetPolicy().then(function (r) { return unwrapData(r, []); }),
 			callGetSchedules().then(function (r) { return unwrapData(r, []); }),
 			callGetIfaceLimits().then(function (r) { return unwrapData(r, []); }),
 			callGetGuestDefaults().then(function (r) { return unwrapData(r, []); }),
 			callGetGuestWhitelist().then(function (r) { return unwrapData(r, []); })
 		]).then(L.bind(function (res) {
-			this.rate.policy = res[0] || [];
-			this.rate.schedules = res[1] || [];
-			this.rate.ifaceLimits = res[2] || [];
-			this.rate.guestDefaults = res[3] || [];
-			this.rate.guestWhitelist = res[4] || [];
-			this.renderPolicyTable();
-			this.renderSchedulesTable();
-			this.renderIfaceLimitTable();
-			this.renderGuestDefaultTable();
-			this.renderWhitelistTable();
-			if (this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.classList.contains('show'))
-				this.renderScheduleHubRulesList();
+			this.rate.schedules = res[0] || [];
+			this.rate.ifaceLimits = res[1] || [];
+			this.rate.guestDefaults = res[2] || [];
+			this.rate.guestWhitelist = res[3] || [];
+			if (!this.isScheduleHubUiOpen()) {
+				this.renderIfaceLimitTable();
+				this.renderGuestDefaultTable();
+				this.renderWhitelistTable();
+			}
 		}, this)).catch(L.bind(function (e) {
 			if (showErr) this.notifyError(_('Failed to refresh rate-limit data'), e);
 		}, this));
@@ -976,10 +966,10 @@ return view.extend({
 				E('td', { 'class': 'bplus-device-actions' }, [
 					E('button', {
 						'type': 'button',
-						'class': 'btn cbi-button cbi-button-action bplus-device-schedule-btn',
+						'class': 'btn cbi-button cbi-button-action bplus-device-settings-btn',
 						'data-bplus-mac': d.mac || '',
 						'data-bplus-iface': deviceIfaceName(d) || ''
-					}, [ _('Schedule') ])
+					}, [ _('Settings') ])
 				])
 			]);
 			body.appendChild(tr);
@@ -1316,51 +1306,6 @@ return view.extend({
 		this.drawTrendChart();
 	},
 
-	renderPolicyTable: function () {
-		var list = this.rate.policy || [];
-		dom.content(this.el.policyBody, []);
-		if (!list.length) {
-			this.el.policyBody.appendChild(E('tr', {}, [ E('td', { 'colspan': '8', 'class': 'bplus-empty' }, [ _('(empty)') ]) ]));
-			return;
-		}
-		for (var i = 0; i < list.length; i++) {
-			var x = list[i];
-			this.el.policyBody.appendChild(E('tr', {}, [
-				E('td', {}, [ x.scope || '—' ]),
-				E('td', {}, [ x.iface != null ? String(x.iface) : '—' ]),
-				E('td', {}, [ x.mac != null ? String(x.mac) : '—' ]),
-				E('td', {}, [ String(x.down_v4_kbps || 0) ]),
-				E('td', {}, [ String(x.down_v6_kbps || 0) ]),
-				E('td', {}, [ String(x.up_v4_kbps || 0) ]),
-				E('td', {}, [ String(x.up_v6_kbps || 0) ]),
-				E('td', {}, [ x.extra || '—' ])
-			]));
-		}
-	},
-
-	renderSchedulesTable: function () {
-		var self = this;
-		var list = this.rate.schedules || [];
-		dom.content(this.el.scheduleBody, []);
-		if (!list.length) {
-			this.el.scheduleBody.appendChild(E('tr', {}, [ E('td', { 'colspan': '6', 'class': 'bplus-empty' }, [ _('(empty)') ]) ]));
-			return;
-		}
-		for (var i = 0; i < list.length; i++) {
-			(function (r) {
-				var t = r.time_slot || {};
-				self.el.scheduleBody.appendChild(E('tr', {}, [
-					E('td', {}, [ String(r.id || '—') ]),
-					E('td', {}, [ String(r.iface || '—') ]),
-					E('td', {}, [ String(r.mac || '—') ]),
-					E('td', {}, [ (t.start || '--:--') + ' - ' + (t.end || '--:--') ]),
-					E('td', {}, [ daysText(t.days || []) ]),
-					E('td', {}, [ scheduleRuleLimitsEl(r) ])
-				]));
-			})(list[i]);
-		}
-	},
-
 	renderIfaceLimitTable: function () {
 		var self = this;
 		var list = this.rate.ifaceLimits || [];
@@ -1543,7 +1488,7 @@ return view.extend({
 	},
 
 	openScheduleModalAdd: function () {
-		ui.addNotification(null, E('p', {}, [ _('Open a device from the device table and use Schedule to manage rules.') ]));
+		ui.addNotification(null, E('p', {}, [ _('Open a device from the device table and use Settings to manage rules.') ]));
 	},
 
 	openScheduleModalForDevice: function (dev) {
@@ -2166,7 +2111,7 @@ return view.extend({
 		}
 
 		this.el.deviceBody.addEventListener('click', L.bind(function (ev) {
-			var btn = ev.target.closest('.bplus-device-schedule-btn');
+			var btn = ev.target.closest('.bplus-device-settings-btn');
 			if (!btn || !this.el.deviceBody.contains(btn)) return;
 			ev.preventDefault();
 			var dev = this.findDeviceForScheduleClick(btn.getAttribute('data-bplus-mac'), btn.getAttribute('data-bplus-iface'));
@@ -2288,8 +2233,6 @@ return view.extend({
 		this.el.deviceHead = E('thead');
 		this.el.deviceBody = E('tbody');
 
-		this.el.policyBody = E('tbody');
-		this.el.scheduleBody = E('tbody');
 		this.el.ifaceLimitBody = E('tbody');
 		this.el.guestDefaultBody = E('tbody');
 		this.el.whitelistBody = E('tbody');
@@ -2670,25 +2613,6 @@ return view.extend({
 						E('span', { 'class': 'meta-pill' }, [ _('Write operations') ])
 					]),
 					E('div', { 'class': 'policy-grid' }, [
-						E('article', { 'class': 'policy-card' }, [
-							E('h3', {}, [ _('Policy (read-only)') ]),
-							E('div', { 'class': 'table-wrapper' }, [
-								E('table', { 'class': 'table bplus-table' }, [
-									E('thead', {}, [ E('tr', {}, [ E('th', {}, [ 'scope' ]), E('th', {}, [ 'iface' ]), E('th', {}, [ 'mac' ]), E('th', {}, [ 'd4' ]), E('th', {}, [ 'd6' ]), E('th', {}, [ 'u4' ]), E('th', {}, [ 'u6' ]), E('th', {}, [ 'extra' ]) ]) ]),
-									this.el.policyBody
-								])
-							])
-						]),
-						E('article', { 'class': 'policy-card' }, [
-							E('h3', {}, [ 'Schedules' ]),
-							E('p', { 'class': 'bplus-subline', 'style': 'margin:0 0 10px 0' }, [ _('Overview of all schedules. Add, edit, or delete rules from the device table (Schedule on each row).') ]),
-							E('div', { 'class': 'table-wrapper compact' }, [
-								E('table', { 'class': 'table bplus-table' }, [
-									E('thead', {}, [ E('tr', {}, [ E('th', {}, [ 'id' ]), E('th', {}, [ 'iface' ]), E('th', {}, [ 'mac' ]), E('th', {}, [ 'time' ]), E('th', {}, [ 'days' ]), E('th', {}, [ _('limits') ]) ]) ]),
-									this.el.scheduleBody
-								])
-							])
-						]),
 						E('article', { 'class': 'policy-card' }, [
 							E('h3', {}, [ 'Iface limits' ]),
 							this.el.ifLimitIfaceList,
