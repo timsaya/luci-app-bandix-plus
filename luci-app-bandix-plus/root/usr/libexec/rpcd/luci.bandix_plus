@@ -31,6 +31,30 @@ bplus_delete_json() {
 
 uripart() { printf %s "$1" | sed 's/+/%2B/g'; }
 
+# LuCI rpc.declare(..., params: ['payload']) sends {"payload": <API JSON>} — curl must use inner body only.
+bplus_unwrap_payload() {
+	local raw="$1"
+	local inner
+	inner="$(echo "$raw" | jsonfilter -e '$.payload' 2>/dev/null)"
+	if [ -n "$inner" ]; then
+		printf '%s' "$inner"
+	else
+		printf '%s' "$raw"
+	fi
+}
+
+# params: ['pair'] → {"pair": [ id, body ]}
+bplus_unwrap_pair() {
+	local raw="$1"
+	local inner
+	inner="$(echo "$raw" | jsonfilter -e '$.pair' 2>/dev/null)"
+	if [ -n "$inner" ]; then
+		printf '%s' "$inner"
+	else
+		printf '%s' "$raw"
+	fi
+}
+
 case "$1" in
 	list)
 		json_init
@@ -97,7 +121,9 @@ case "$1" in
 		json_add_string "payload"
 		json_close_object
 		json_add_object "setDeviceHostname"
-		json_add_string "payload"
+		json_add_string "iface"
+		json_add_string "mac"
+		json_add_string "hostname"
 		json_close_object
 		json_add_object "getVersion"
 		json_close_object
@@ -187,27 +213,58 @@ case "$1" in
 			getPolicy) bplus_get "$BASE/api/policy" ;;
 			getSchedules) bplus_get "$BASE/api/rate_limit/schedules" ;;
 			createSchedule)
+				input=""
+				read -r -t 5 input || true
 				js="${3:-}"
-				[ -z "$js" ] && { read -r -t 5 js || true; }
+				if [ -n "$input" ]; then
+					js="$(bplus_unwrap_payload "$input")"
+				elif [ -n "$js" ]; then
+					js="$(bplus_unwrap_payload "$js")"
+				fi
+				[ -z "$js" ] && {
+					printf '%s\n' '{"ok":false,"data":null,"error":"createSchedule: empty body"}'
+					exit 0
+				}
 				bplus_post_json "$js" "$BASE/api/rate_limit/schedules"
 				;;
 			updateSchedule)
+				input=""
+				read -r -t 5 input || true
 				pair="${3:-}"
-				[ -z "$pair" ] && { read -r -t 5 pair || true; }
-				rid="$(echo "$pair" | jsonfilter -e '$[0]')"
-				body="$(echo "$pair" | jsonfilter -e '$[1]')"
+				if [ -n "$input" ]; then
+					pair="$(bplus_unwrap_pair "$input")"
+				elif [ -n "$pair" ]; then
+					pair="$(bplus_unwrap_pair "$pair")"
+				fi
+				rid="$(echo "$pair" | jsonfilter -e '$[0]' 2>/dev/null)"
+				body="$(echo "$pair" | jsonfilter -e '$[1]' 2>/dev/null)"
 				[ -n "$rid" ] && [ -n "$body" ] && bplus_put_json "$body" "$BASE/api/rate_limit/schedules/$(uripart "$rid")" && exit 0
 				printf '%s' '{"ok":false,"data":null,"error":"updateSchedule: 参数为 JSON 数组 [id, 体对象]"}'
 				;;
 			deleteSchedule)
+				input=""
+				read -r -t 5 input || true
 				rid="${3:-}"
-				[ -z "$rid" ] && { read -t 1 -r input || true; rid="$(echo "$input" | jsonfilter -e '$[0]')"; [ -z "$rid" ] && rid="$(echo "$input" | jsonfilter -e '$.id' 2>/dev/null)"; }
+				if [ -z "$rid" ] && [ -n "$input" ]; then
+					rid="$(echo "$input" | jsonfilter -e '$.id' 2>/dev/null)"
+					[ -z "$rid" ] && rid="$(echo "$input" | jsonfilter -e '$[0]' 2>/dev/null)"
+				fi
 				bplus_delete "$BASE/api/rate_limit/schedules/$(uripart "$rid")"
 				;;
 			getIfaceLimits) bplus_get "$BASE/api/rate_limit/iface_limits" ;;
 			setIfaceLimit)
+				input=""
+				read -r -t 5 input || true
 				js="${3:-}"
-				[ -z "$js" ] && { read -r -t 5 js || true; }
+				if [ -n "$input" ]; then
+					js="$(bplus_unwrap_payload "$input")"
+				elif [ -n "$js" ]; then
+					js="$(bplus_unwrap_payload "$js")"
+				fi
+				[ -z "$js" ] && {
+					printf '%s\n' '{"ok":false,"data":null,"error":"setIfaceLimit: empty body"}'
+					exit 0
+				}
 				bplus_post_json "$js" "$BASE/api/rate_limit/iface_limits"
 				;;
 			deleteIfaceLimit)
@@ -217,8 +274,18 @@ case "$1" in
 				;;
 			getGuestDefaults) bplus_get "$BASE/api/rate_limit/guest_defaults" ;;
 			setGuestDefault)
+				input=""
+				read -r -t 5 input || true
 				js="${3:-}"
-				[ -z "$js" ] && { read -r -t 5 js || true; }
+				if [ -n "$input" ]; then
+					js="$(bplus_unwrap_payload "$input")"
+				elif [ -n "$js" ]; then
+					js="$(bplus_unwrap_payload "$js")"
+				fi
+				[ -z "$js" ] && {
+					printf '%s\n' '{"ok":false,"data":null,"error":"setGuestDefault: empty body"}'
+					exit 0
+				}
 				bplus_post_json "$js" "$BASE/api/rate_limit/guest_defaults"
 				;;
 			deleteGuestDefault)
@@ -228,18 +295,62 @@ case "$1" in
 				;;
 			getGuestWhitelist) bplus_get "$BASE/api/rate_limit/guest_whitelist" ;;
 			addGuestWhitelist)
+				input=""
+				read -r -t 5 input || true
 				js="${3:-}"
-				[ -z "$js" ] && { read -r -t 5 js || true; }
+				if [ -n "$input" ]; then
+					js="$(bplus_unwrap_payload "$input")"
+				elif [ -n "$js" ]; then
+					js="$(bplus_unwrap_payload "$js")"
+				fi
+				[ -z "$js" ] && {
+					printf '%s\n' '{"ok":false,"data":null,"error":"addGuestWhitelist: empty body"}'
+					exit 0
+				}
 				bplus_post_json "$js" "$BASE/api/rate_limit/guest_whitelist"
 				;;
 			removeGuestWhitelist)
+				input=""
+				read -r -t 5 input || true
 				js="${3:-}"
-				[ -z "$js" ] && { read -r -t 5 js || true; }
+				if [ -n "$input" ]; then
+					js="$(bplus_unwrap_payload "$input")"
+				elif [ -n "$js" ]; then
+					js="$(bplus_unwrap_payload "$js")"
+				fi
+				[ -z "$js" ] && {
+					printf '%s\n' '{"ok":false,"data":null,"error":"removeGuestWhitelist: empty body"}'
+					exit 0
+				}
 				bplus_delete_json "$js" "$BASE/api/rate_limit/guest_whitelist"
 				;;
 			setDeviceHostname)
-				js="${3:-}"
-				[ -z "$js" ] && { read -r -t 5 js || true; }
+				# LuCI RPC 与 luci.bandix setHostname 一致：stdin 为 JSON 数组 [iface,mac,hostname] 或对象 {iface,mac,hostname}
+				input=""
+				read -r -t 5 input || true
+				iface="${3:-}"; mac="${4:-}"; hn="${5:-}"
+				if [ -n "$input" ]; then
+					iobj="$(echo "$input" | jsonfilter -e '$.iface' 2>/dev/null)"
+					mobj="$(echo "$input" | jsonfilter -e '$.mac' 2>/dev/null)"
+					hobj="$(echo "$input" | jsonfilter -e '$.hostname' 2>/dev/null)"
+					if [ -n "$mobj" ]; then
+						iface="$iobj"; mac="$mobj"; hn="$hobj"
+					else
+						iface="$(echo "$input" | jsonfilter -e '$[0]' 2>/dev/null)"
+						mac="$(echo "$input" | jsonfilter -e '$[1]' 2>/dev/null)"
+						hn="$(echo "$input" | jsonfilter -e '$[2]' 2>/dev/null)"
+					fi
+				fi
+				if [ -z "$iface" ] || [ -z "$mac" ] || [ -z "$hn" ]; then
+					printf '%s\n' '{"ok":false,"data":"error","error":"setDeviceHostname: iface, mac and hostname required"}'
+					exit 0
+				fi
+				json_init
+				json_add_string iface "$iface"
+				json_add_string mac "$mac"
+				json_add_string hostname "$hn"
+				js="$(json_dump)"
+				json_cleanup
 				bplus_put_json "$js" "$BASE/api/devices/hostname"
 				;;
 			getVersion)

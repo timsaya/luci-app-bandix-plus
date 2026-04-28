@@ -1422,6 +1422,78 @@
   z-index: 10060;
 }
 
+/* Schedule delete confirm — same structure/classes as luci-app-bandix confirm-dialog */
+#bplus-schedule-delete-confirm.bandix-modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10070;
+  background-color: rgba(0, 0, 0, 0);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+#bplus-schedule-delete-confirm.bandix-modal-overlay.show {
+  background-color: rgba(0, 0, 0, 0.5);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+#bplus-schedule-delete-confirm .modal-content {
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+#bplus-schedule-delete-confirm .bandix-modal {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  background-color: var(--bplus-bg) !important;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+#bplus-schedule-delete-confirm.bandix-modal-overlay.show .bandix-modal {
+  opacity: 1;
+}
+
+#bplus-schedule-delete-confirm .confirm-dialog {
+  max-width: 400px;
+}
+
+#bplus-schedule-delete-confirm .confirm-dialog .bandix-modal-body {
+  padding: 24px;
+}
+
+#bplus-schedule-delete-confirm .confirm-dialog-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--bplus-text);
+}
+
+#bplus-schedule-delete-confirm .confirm-dialog-message {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  color: var(--bplus-sub);
+}
+
+#bplus-schedule-delete-confirm .confirm-dialog-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .bplus-schedule-hub-summary {
   margin-bottom: 14px;
   padding-bottom: 12px;
@@ -1518,6 +1590,17 @@
 
 .bplus-schedule-rule-limits {
   font-size: 0.8125rem;
+}
+
+.bplus-schedule-rule-limits--detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.bplus-schedule-limit-line {
+  line-height: 1.35;
 }
 
 .bplus-schedule-rule-actions {

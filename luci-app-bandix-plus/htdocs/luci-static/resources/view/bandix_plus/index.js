@@ -39,7 +39,12 @@ var callGetSchedules = rpc.declare({ object: 'luci.bandix_plus', method: 'getSch
 var callCreateSchedule = rpc.declare({ object: 'luci.bandix_plus', method: 'createSchedule', params: [ 'payload' ], expect: {} });
 var callUpdateSchedule = rpc.declare({ object: 'luci.bandix_plus', method: 'updateSchedule', params: [ 'pair' ], expect: {} });
 var callDeleteSchedule = rpc.declare({ object: 'luci.bandix_plus', method: 'deleteSchedule', params: [ 'id' ], expect: {} });
-var callSetDeviceHostname = rpc.declare({ object: 'luci.bandix_plus', method: 'setDeviceHostname', params: [ 'payload' ], expect: {} });
+var callSetDeviceHostname = rpc.declare({
+	object: 'luci.bandix_plus',
+	method: 'setDeviceHostname',
+	params: [ 'iface', 'mac', 'hostname' ],
+	expect: {}
+});
 var callGetIfaceLimits = rpc.declare({ object: 'luci.bandix_plus', method: 'getIfaceLimits', expect: {} });
 var callSetIfaceLimit = rpc.declare({ object: 'luci.bandix_plus', method: 'setIfaceLimit', params: [ 'payload' ], expect: {} });
 var callDeleteIfaceLimit = rpc.declare({ object: 'luci.bandix_plus', method: 'deleteIfaceLimit', params: [ 'iface' ], expect: {} });
@@ -146,6 +151,16 @@ function compareVal(a, b) {
 	if (b == null) return 1;
 	if (typeof a === 'number' && typeof b === 'number') return a - b;
 	return String(a).localeCompare(String(b));
+}
+
+function deviceIfaceName(d) {
+	if (!d || typeof d !== 'object') return '';
+	var v = d.logical_iface != null ? String(d.logical_iface).trim() : '';
+	if (v) return v;
+	v = d.iface != null ? String(d.iface).trim() : '';
+	if (v) return v;
+	v = d.ifname != null ? String(d.ifname).trim() : '';
+	return v || '';
 }
 
 /** 设备列表 IPv4 排序：取第一个地址，按四段数值比较；无/无效为 -1。 */
@@ -272,6 +287,21 @@ function formatScheduleDayLabels(days) {
 	return parts.join(', ');
 }
 
+/** Scheduled rule kbps limits: IPv4/IPv6 × download/upload (same semantics as form). */
+function scheduleRuleLimitsEl(r) {
+	var d4 = r.down_v4_kbps || 0, d6 = r.down_v6_kbps || 0, u4 = r.up_v4_kbps || 0, u6 = r.up_v6_kbps || 0;
+	var u = ' kbps';
+	var line = function (fam, dn, up) {
+		return E('div', { 'class': 'bplus-schedule-limit-line' }, [
+			fam + ': ' + _('Download') + ' ' + dn + u + ', ' + _('Upload') + ' ' + up + u
+		]);
+	};
+	return E('div', { 'class': 'bplus-schedule-rule-limits bplus-schedule-rule-limits--detail' }, [
+		line(_('IPv4'), d4, u4),
+		line(_('IPv6'), d6, u6)
+	]);
+}
+
 var BPLUS_TREND_MAX_POINTS = 1200;
 var BPLUS_TREND_MAX_RATE_BPS = 1024 * 1024 * 1024 * 10; // 10 GB/s guardrail
 /* Chart CSS size: parent width + fixed height (same idea as luci-app-bandix drawIncrementsChart / #history-canvas). */
@@ -376,6 +406,7 @@ return view.extend({
 		this.deviceSortAsc = true;
 		this.scheduleEditingId = null;
 		this.scheduleHubDevice = null;
+		this.pendingDeleteScheduleId = null;
 		this.overview = [];
 		this.devices = [];
 		this.trend = [];
@@ -470,6 +501,25 @@ return view.extend({
 		ui.addNotification(null, E('p', {}, [ txt ]));
 	},
 
+	/** True while schedule hub or nested rule modal is visible — avoids tearing down tbody during poll refresh (lost click / ghost clicks). */
+	isScheduleHubUiOpen: function () {
+		return !!(this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.classList.contains('show'))
+			|| !!(this.el.scheduleRuleOverlay && this.el.scheduleRuleOverlay.classList.contains('show'))
+			|| !!(this.el.scheduleDeleteConfirmOverlay && this.el.scheduleDeleteConfirmOverlay.classList.contains('show'));
+	},
+
+	findDeviceForScheduleClick: function (macAttr, ifaceAttr) {
+		var mk = this.normalizeMacKey(macAttr);
+		var iface = String(ifaceAttr || '');
+		var list = this.devices;
+		for (var i = 0; i < list.length; i++) {
+			var d = list[i];
+			if (this.normalizeMacKey(d.mac) === mk && String(deviceIfaceName(d) || '') === iface)
+				return d;
+		}
+		return null;
+	},
+
 	refreshLive: function (showErr) {
 		var self = this;
 		var p = this.applyPeriod(this.period);
@@ -487,7 +537,15 @@ return view.extend({
 			})
 		]).then(L.bind(function (res) {
 			this.overview = res[0] || [];
-			this.devices = res[1] || [];
+			var rawDevices = Array.isArray(res[1]) ? res[1] : [];
+			this.devices = rawDevices.map(function (d) {
+				if (!d || typeof d !== 'object') return d;
+				if (!d.logical_iface) {
+					var iface = deviceIfaceName(d);
+					if (iface) d.logical_iface = iface;
+				}
+				return d;
+			});
 
 			if (!this.selectedIface && this.overview.length) {
 				this.selectedIface = this.overview[0].ifname;
@@ -509,7 +567,8 @@ return view.extend({
 			this.renderStatsIfaceOptions();
 			this.renderStatsMacOptions();
 			this.renderOverviewGrid();
-			this.renderDevicesTable();
+			if (!this.isScheduleHubUiOpen())
+				this.renderDevicesTable();
 			this.syncRateFormIfaceOptions();
 			if (this.el.overviewCount) {
 				this.el.overviewCount.textContent = String(this.overview.length) + ' 条';
@@ -702,7 +761,7 @@ return view.extend({
 			}
 		}
 		for (var j = 0; j < this.devices.length; j++) {
-			var li = this.devices[j].logical_iface;
+			var li = deviceIfaceName(this.devices[j]);
 			if (li && !seen[li]) {
 				seen[li] = 1;
 				opts.push(E('option', { 'value': li }, [ li ]));
@@ -736,7 +795,7 @@ return view.extend({
 		dom.content(sel, [ E('option', { 'value': '' }, [ _('All Devices') ]) ]);
 		var iface = this.selectedIface;
 		var list = this.devices.filter(function (d) {
-			return !iface || d.logical_iface === iface;
+			return !iface || deviceIfaceName(d) === iface;
 		});
 		list.sort(function (a, b) {
 			return String(a.mac).localeCompare(String(b.mac));
@@ -773,7 +832,7 @@ return view.extend({
 		var iface = this.el.statsIface ? this.el.statsIface.value : '';
 		dom.content(sel, [ E('option', { 'value': '' }, [ _('All devices') ]) ]);
 		var list = this.devices.filter(function (d) {
-			return !iface || d.logical_iface === iface;
+			return !iface || deviceIfaceName(d) === iface;
 		});
 		list.sort(function (a, b) {
 			return String(a.mac).localeCompare(String(b.mac));
@@ -796,8 +855,8 @@ return view.extend({
 				bv = (b.hostname || '').toLowerCase();
 			}
 			else if (key === 'iface') {
-				av = a.logical_iface || '';
-				bv = b.logical_iface || '';
+				av = deviceIfaceName(a);
+				bv = deviceIfaceName(b);
 			}
 			else if (key === 'ipv4') {
 				av = deviceFirstIpv4Uint(a);
@@ -905,7 +964,7 @@ return view.extend({
 				])
 				: E('td', { 'class': 'bplus-host' }, [ hostText ]);
 			var tr = E('tr', { 'class': d.online ? 'is-online' : 'is-offline' }, [
-				E('td', {}, [ d.logical_iface || '—' ]),
+				E('td', {}, [ deviceIfaceName(d) || '—' ]),
 				hostTd,
 				E('td', { 'class': 'bplus-mono' }, [ d.mac || '—' ]),
 				E('td', {}, [ (d.ipv4 && d.ipv4.length) ? d.ipv4.join(', ') : '—' ]),
@@ -917,8 +976,9 @@ return view.extend({
 				E('td', { 'class': 'bplus-device-actions' }, [
 					E('button', {
 						'type': 'button',
-						'class': 'btn cbi-button cbi-button-action',
-						'click': L.bind(this.openScheduleModalForDevice, this, d)
+						'class': 'btn cbi-button cbi-button-action bplus-device-schedule-btn',
+						'data-bplus-mac': d.mac || '',
+						'data-bplus-iface': deviceIfaceName(d) || ''
 					}, [ _('Schedule') ])
 				])
 			]);
@@ -1295,7 +1355,7 @@ return view.extend({
 					E('td', {}, [ String(r.mac || '—') ]),
 					E('td', {}, [ (t.start || '--:--') + ' - ' + (t.end || '--:--') ]),
 					E('td', {}, [ daysText(t.days || []) ]),
-					E('td', {}, [ 'd4 ' + (r.down_v4_kbps || 0) + ' / d6 ' + (r.down_v6_kbps || 0) + ' / u4 ' + (r.up_v4_kbps || 0) + ' / u6 ' + (r.up_v6_kbps || 0) ])
+					E('td', {}, [ scheduleRuleLimitsEl(r) ])
 				]));
 			})(list[i]);
 		}
@@ -1400,7 +1460,7 @@ return view.extend({
 	fillScheduleHubFromDevice: function (dev) {
 		var hn = dev.hostname && dev.hostname !== '-' && String(dev.hostname).trim() ? String(dev.hostname) : '';
 		var primary = hn || ((dev.ipv4 && dev.ipv4.length) ? dev.ipv4[0] : '') || (dev.mac || '—');
-		var iface = dev.logical_iface || '—';
+		var iface = deviceIfaceName(dev) || '—';
 		var ip = (dev.ipv4 && dev.ipv4.length) ? dev.ipv4.join(', ') : '—';
 		var v6 = (dev.ipv6 && dev.ipv6.length) ? dev.ipv6.join(', ') : '—';
 		this.el.scheduleHubPrimary.textContent = primary;
@@ -1416,7 +1476,7 @@ return view.extend({
 		dom.content(wrap, []);
 		if (!dev) return;
 		var mkey = this.normalizeMacKey(dev.mac);
-		var iface = String(dev.logical_iface || '');
+		var iface = String(deviceIfaceName(dev) || '');
 		var rules = (this.rate.schedules || []).filter(L.bind(function (r) {
 			return this.normalizeMacKey(r.mac) === mkey && String(r.iface || '') === iface;
 		}, this));
@@ -1428,12 +1488,12 @@ return view.extend({
 		for (var i = 0; i < rules.length; i++) {
 			(function (r) {
 				var t = r.time_slot || {};
-				var limits = 'd4 ' + (r.down_v4_kbps || 0) + ' · d6 ' + (r.down_v6_kbps || 0) + ' · u4 ' + (r.up_v4_kbps || 0) + ' · u6 ' + (r.up_v6_kbps || 0);
+				var limits = scheduleRuleLimitsEl(r);
 				var item = E('div', { 'class': 'bplus-schedule-rule-item' }, [
 					E('div', { 'class': 'bplus-schedule-rule-info' }, [
 						E('div', { 'class': 'bplus-schedule-rule-time' }, [ (t.start || '--:--') + ' – ' + (t.end || '--:--') ]),
 						E('div', { 'class': 'bplus-schedule-rule-days' }, [ formatScheduleDayLabels(t.days) ]),
-						E('div', { 'class': 'bplus-schedule-rule-limits bplus-mono' }, [ limits ])
+						limits
 					]),
 					E('div', { 'class': 'bplus-schedule-rule-actions' }, [
 						E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-edit bplus-sch-rule-edit' }, [ _('Edit') ]),
@@ -1454,18 +1514,19 @@ return view.extend({
 			this.notifyError(_('Hostname is required'), null);
 			return;
 		}
-		var iface = String(dev.logical_iface || '').trim();
+		var iface = String(deviceIfaceName(dev) || '').trim();
 		var mac = String(dev.mac || '').trim();
 		if (!iface || !mac) {
 			this.notifyError(_('Iface and MAC are required'), null);
 			return;
 		}
-		callSetDeviceHostname(JSON.stringify({ iface: iface, mac: mac, hostname: hostname })).then(bplusJson).then(L.bind(function (r) {
+		callSetDeviceHostname(iface, mac, hostname).then(bplusJson).then(L.bind(function (r) {
 			if (r && r.ok === false) throw new Error(r.error || 'hostname failed');
-			ui.addNotification(null, E('p', {}, [ _('Hostname saved') ]));
 			dev.hostname = hostname;
 			this.fillScheduleHubFromDevice(dev);
-			return this.refreshLive(true);
+			return this.refreshLive(true).then(L.bind(function () {
+				this.renderDevicesTable();
+			}, this));
 		}, this)).catch(L.bind(function (e) {
 			this.notifyError(_('Failed to save hostname'), e);
 		}, this));
@@ -1545,17 +1606,35 @@ return view.extend({
 	},
 
 	closeScheduleHubAll: function () {
+		this.hideScheduleDeleteConfirm();
 		this.hideScheduleRuleModal();
 		this.hideScheduleHubModal();
 		this.scheduleHubDevice = null;
 		this.resetScheduleForm();
 	},
 
+	showScheduleDeleteConfirm: function (id) {
+		this.pendingDeleteScheduleId = String(id);
+		if (this.el.scheduleDeleteConfirmOverlay)
+			this.el.scheduleDeleteConfirmOverlay.classList.add('show');
+	},
+
+	hideScheduleDeleteConfirm: function () {
+		this.pendingDeleteScheduleId = null;
+		if (this.el.scheduleDeleteConfirmOverlay)
+			this.el.scheduleDeleteConfirmOverlay.classList.remove('show');
+	},
+
 	deleteSchedule: function (id) {
-		if (!confirm(_('Delete this schedule?'))) return;
-		callDeleteSchedule(String(id)).then(bplusJson).then(L.bind(function (r) {
+		this.showScheduleDeleteConfirm(id);
+	},
+
+	runDeleteScheduleConfirmed: function () {
+		var id = this.pendingDeleteScheduleId;
+		this.hideScheduleDeleteConfirm();
+		if (!id) return;
+		callDeleteSchedule(id).then(bplusJson).then(L.bind(function (r) {
 			if (r && r.ok === false) throw new Error(r.error || 'delete failed');
-			ui.addNotification(null, E('p', {}, [ _('Deleted') ]));
 			return this.refreshRateData(false);
 		}, this)).then(L.bind(function () {
 			if (this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.classList.contains('show'))
@@ -1613,7 +1692,7 @@ return view.extend({
 			this.notifyError(_('No device context'), null);
 			return;
 		}
-		var iface = String(dev.logical_iface || '').trim();
+		var iface = String(deviceIfaceName(dev) || '').trim();
 		var mac = String(dev.mac || '').trim();
 		if (!iface || !mac) {
 			this.notifyError(_('Iface and MAC are required'), null);
@@ -1639,8 +1718,6 @@ return view.extend({
 
 		req.then(bplusJson).then(L.bind(function (r) {
 			if (r && r.ok === false) throw new Error(r.error || 'submit failed');
-			var wasEdit = !!this.scheduleEditingId;
-			ui.addNotification(null, E('p', {}, [ wasEdit ? _('Schedule updated') : _('Schedule added') ]));
 			this.hideScheduleRuleModal();
 			this.resetScheduleForm();
 			return this.refreshRateData(false);
@@ -2088,6 +2165,14 @@ return view.extend({
 			}, this));
 		}
 
+		this.el.deviceBody.addEventListener('click', L.bind(function (ev) {
+			var btn = ev.target.closest('.bplus-device-schedule-btn');
+			if (!btn || !this.el.deviceBody.contains(btn)) return;
+			ev.preventDefault();
+			var dev = this.findDeviceForScheduleClick(btn.getAttribute('data-bplus-mac'), btn.getAttribute('data-bplus-iface'));
+			this.openScheduleModalForDevice(dev);
+		}, this));
+
 		if (this.el.statsIface) {
 			this.el.statsIface.addEventListener('change', L.bind(function () {
 				this.renderStatsMacOptions();
@@ -2123,16 +2208,18 @@ return view.extend({
 			ev.preventDefault();
 			this.hideScheduleRuleModal();
 		}, this));
-		this.el.scheduleHubDismiss.addEventListener('click', L.bind(function (ev) {
-			ev.preventDefault();
-			this.closeScheduleHubAll();
-		}, this));
 		this.el.scheduleHubCloseBtn.addEventListener('click', L.bind(function (ev) {
 			ev.preventDefault();
 			this.closeScheduleHubAll();
 		}, this));
-		this.el.scheduleHubAddRuleBtn.addEventListener('click', L.bind(this.openScheduleRuleModalAdd, this));
-		this.el.scheduleHubHostnameSave.addEventListener('click', L.bind(this.submitScheduleHubHostname, this));
+		this.el.scheduleDeleteConfirmCancel.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.hideScheduleDeleteConfirm();
+		}, this));
+		this.el.scheduleDeleteConfirmOk.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.runDeleteScheduleConfirmed();
+		}, this));
 		this.el.ifaceLimitForm.addEventListener('submit', L.bind(this.submitIfaceLimit, this));
 		this.el.guestDefaultForm.addEventListener('submit', L.bind(this.submitGuestDefault, this));
 		this.el.whitelistForm.addEventListener('submit', L.bind(this.submitWhitelist, this));
@@ -2293,24 +2380,27 @@ return view.extend({
 		]);
 		this.el.scheduleRuleOverlay = E('div', {
 			'class': 'bplus-modal-overlay bplus-modal-overlay--stack',
-			'id': 'bplus-schedule-rule-modal',
-			'click': L.bind(function (ev) {
-				if (ev.target === this.el.scheduleRuleOverlay)
-					this.hideScheduleRuleModal();
-			}, this)
+			'id': 'bplus-schedule-rule-modal'
 		}, [ this.el.scheduleRulePanel ]);
 
 		this.el.scheduleHubPrimary = E('div', { 'class': 'bplus-schedule-hub-primary' });
 		this.el.scheduleHubMeta = E('div', { 'class': 'bplus-schedule-hub-meta' });
 		this.el.scheduleHubHostnameInput = E('input', { 'class': 'cbi-input-text', 'type': 'text', 'placeholder': _('Device hostname') });
-		this.el.scheduleHubHostnameSave = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-save' }, [ _('Save') ]);
-		this.el.scheduleHubAddRuleBtn = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-action' }, [ _('Add rule') ]);
+		this.el.scheduleHubHostnameSave = E('button', {
+			'type': 'button',
+			'class': 'btn cbi-button cbi-button-save',
+			'click': L.bind(this.submitScheduleHubHostname, this)
+		}, [ _('Save') ]);
+		this.el.scheduleHubAddRuleBtn = E('button', {
+			'type': 'button',
+			'class': 'btn cbi-button cbi-button-action',
+			'click': L.bind(this.openScheduleRuleModalAdd, this)
+		}, [ _('Add rule') ]);
 		this.el.scheduleHubRulesList = E('div', { 'class': 'bplus-schedule-rules-list' });
 		this.el.scheduleHubCloseBtn = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-reset' }, [ _('Close') ]);
-		this.el.scheduleHubDismiss = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-reset bplus-modal-dismiss', 'aria-label': 'Close' }, [ '×' ]);
 		this.el.scheduleHubTitle = E('h3', { 'class': 'bplus-modal-title' }, [ _('Schedule rules') ]);
 		this.el.scheduleHubPanel = E('div', { 'class': 'bplus-modal-panel bplus-modal-panel--hub' }, [
-			E('div', { 'class': 'bplus-modal-header' }, [ this.el.scheduleHubTitle, this.el.scheduleHubDismiss ]),
+			E('div', { 'class': 'bplus-modal-header' }, [ this.el.scheduleHubTitle ]),
 			E('div', { 'class': 'bplus-modal-body' }, [
 				E('div', { 'class': 'bplus-schedule-hub-summary' }, [ this.el.scheduleHubPrimary, this.el.scheduleHubMeta ]),
 				E('div', { 'class': 'bplus-form-group bplus-schedule-hostname-block' }, [
@@ -2331,12 +2421,33 @@ return view.extend({
 		]);
 		this.el.scheduleHubOverlay = E('div', {
 			'class': 'bplus-modal-overlay',
-			'id': 'bplus-schedule-hub-modal',
-			'click': L.bind(function (ev) {
-				if (ev.target === this.el.scheduleHubOverlay)
-					this.closeScheduleHubAll();
-			}, this)
+			'id': 'bplus-schedule-hub-modal'
 		}, [ this.el.scheduleHubPanel ]);
+
+		this.el.scheduleDeleteConfirmCancel = E('button', {
+			'type': 'button',
+			'class': 'cbi-button cbi-button-reset'
+		}, [ _('Cancel') ]);
+		this.el.scheduleDeleteConfirmOk = E('button', {
+			'type': 'button',
+			'class': 'cbi-button cbi-button-negative'
+		}, [ _('Delete') ]);
+		this.el.scheduleDeleteConfirmOverlay = E('div', {
+			'class': 'bandix-modal-overlay',
+			'id': 'bplus-schedule-delete-confirm',
+			'aria-modal': 'true'
+		}, [
+			E('div', { 'class': 'modal-content bandix-modal confirm-dialog' }, [
+				E('div', { 'class': 'bandix-modal-body' }, [
+					E('div', { 'class': 'confirm-dialog-title' }, [ _('Delete schedule rule') ]),
+					E('div', { 'class': 'confirm-dialog-message' }, [ _('Are you sure you want to delete this schedule rule?') ]),
+					E('div', { 'class': 'confirm-dialog-footer' }, [
+						this.el.scheduleDeleteConfirmCancel,
+						this.el.scheduleDeleteConfirmOk
+					])
+				])
+			])
+		]);
 
 		this.el.ifLimitIface = E('input', { 'class': 'cbi-input-text', 'list': 'bplus_iflimit_iface_list', 'placeholder': 'eth0' });
 		this.el.ifLimitD4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '0' });
@@ -2627,6 +2738,8 @@ return view.extend({
 			this.root.appendChild(this.el.scheduleHubOverlay);
 		if (this.el.scheduleRuleOverlay && this.el.scheduleRuleOverlay.parentNode !== this.root)
 			this.root.appendChild(this.el.scheduleRuleOverlay);
+		if (this.el.scheduleDeleteConfirmOverlay && this.el.scheduleDeleteConfirmOverlay.parentNode !== this.root)
+			this.root.appendChild(this.el.scheduleDeleteConfirmOverlay);
 		this.setThemeClass();
 		this.bindEvents();
 
