@@ -581,16 +581,6 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-.bplus-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.bplus-actions .btn {
-  margin: 0;
-}
-
 .bplus-form-inline {
   display: grid;
   grid-template-columns: repeat(10, minmax(90px, 1fr));
@@ -1391,7 +1381,369 @@
   width: auto;
 }
 
+.bplus-page .bplus-device-actions {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.bplus-page .bplus-device-actions .btn {
+  margin: 0;
+}
+
 .bplus-page .table-wrapper.compact {
   max-height: 280px;
   overflow: auto;
+}
+
+/* Schedule rate-limit modal (aligned with luci-app-bandix bandix-modal) */
+.bplus-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  background: rgba(15, 23, 42, 0.55);
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+}
+
+.bplus-modal-overlay.show {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bplus-modal-overlay--stack {
+  z-index: 10060;
+}
+
+.bplus-schedule-hub-summary {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--bplus-border);
+}
+
+.bplus-schedule-hub-primary {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.bplus-schedule-hub-meta {
+  margin-top: 6px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--bplus-sub);
+  word-break: break-word;
+}
+
+.bplus-schedule-hostname-block {
+  margin-top: 0;
+}
+
+.bplus-schedule-hostname-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.bplus-schedule-hostname-actions .cbi-input-text {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+
+.bplus-schedule-hub-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 16px 0 10px;
+}
+
+.bplus-schedule-rules-list {
+  max-height: min(240px, 40vh);
+  overflow: auto;
+  border: 1px solid var(--bplus-border);
+  border-radius: 8px;
+  background: var(--bplus-card);
+  padding: 6px 8px;
+}
+
+.bplus-schedule-rules-empty {
+  text-align: center;
+  padding: 16px 8px;
+  font-size: 0.875rem;
+  opacity: 0.72;
+}
+
+.bplus-schedule-rule-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--bplus-border);
+  font-size: 0.875rem;
+}
+
+.bplus-schedule-rule-item:last-child {
+  border-bottom: none;
+}
+
+.bplus-schedule-rule-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bplus-schedule-rule-time {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.bplus-schedule-rule-days {
+  font-size: 0.8125rem;
+  color: var(--bplus-sub);
+  margin-bottom: 4px;
+}
+
+.bplus-schedule-rule-limits {
+  font-size: 0.8125rem;
+}
+
+.bplus-schedule-rule-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+}
+
+.bplus-modal-panel--rule .bplus-schedule-form > .bplus-form-group:first-child {
+  margin-top: 4px;
+}
+
+.bplus-modal-panel {
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(92vh, 780px);
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid var(--bplus-border);
+  background: var(--bplus-bg);
+  color: var(--bplus-text);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+  box-sizing: border-box;
+}
+
+.bplus-modal-panel.bplus-modal-panel--hub {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.bplus-modal-panel.bplus-modal-panel--rule {
+  width: min(720px, calc(100vw - 32px));
+}
+
+.bplus-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--bplus-border);
+}
+
+.bplus-modal-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.bplus-modal-dismiss {
+  flex-shrink: 0;
+  font-size: 1.35rem;
+  line-height: 1;
+  padding: 2px 10px 6px;
+  min-width: 0;
+}
+
+.bplus-modal-body {
+  padding: 4px 18px 18px;
+}
+
+.bplus-schedule-summary {
+  padding: 2px 0 10px;
+  margin: 0 0 6px;
+  border-bottom: 1px solid var(--bplus-border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bplus-schedule-summary-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.bplus-schedule-kv {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.bplus-schedule-kv-sep {
+  opacity: 0.4;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.bplus-schedule-summary-k {
+  font-weight: 600;
+  opacity: 0.72;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.bplus-schedule-summary-v {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.bplus-schedule-form .bplus-schedule-limits-block .bplus-form-hint {
+  margin-top: 8px;
+}
+
+.bplus-schedule-rate-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 20px;
+  align-items: start;
+}
+
+.bplus-schedule-rate-col {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bplus-form-sublabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  opacity: 0.72;
+}
+
+@media (max-width: 520px) {
+  .bplus-schedule-rate-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bplus-schedule-form .bplus-form-group {
+  margin-top: 14px;
+}
+
+.bplus-schedule-form .bplus-form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  opacity: 0.78;
+  margin-bottom: 6px;
+}
+
+.bplus-schedule-form .cbi-input-text {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.bplus-form-hint {
+  font-size: 0.75rem;
+  color: var(--bplus-sub);
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.bplus-schedule-time-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bplus-schedule-time-input {
+  flex: 1;
+  min-width: 7em;
+}
+
+.bplus-schedule-time-sep {
+  opacity: 0.55;
+  font-size: 0.875rem;
+}
+
+.bplus-schedule-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bplus-schedule-day-btn {
+  flex: 1;
+  min-width: 40px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--bplus-border);
+  background: var(--bplus-card);
+  color: var(--bplus-text);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.bplus-schedule-day-btn:hover {
+  border-color: var(--bplus-accent);
+}
+
+.bplus-schedule-day-btn.active {
+  background: var(--bplus-accent);
+  color: #fff;
+  border-color: var(--bplus-accent);
+}
+
+.bplus-modal-form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--bplus-border);
+}
+
+.bplus-schedule-card-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.bplus-schedule-card-toolbar .bplus-subline {
+  flex: 1 1 200px;
+  margin: 0;
+  min-width: 0;
 }

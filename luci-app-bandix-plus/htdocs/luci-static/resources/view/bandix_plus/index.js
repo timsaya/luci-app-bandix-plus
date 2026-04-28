@@ -39,6 +39,7 @@ var callGetSchedules = rpc.declare({ object: 'luci.bandix_plus', method: 'getSch
 var callCreateSchedule = rpc.declare({ object: 'luci.bandix_plus', method: 'createSchedule', params: [ 'payload' ], expect: {} });
 var callUpdateSchedule = rpc.declare({ object: 'luci.bandix_plus', method: 'updateSchedule', params: [ 'pair' ], expect: {} });
 var callDeleteSchedule = rpc.declare({ object: 'luci.bandix_plus', method: 'deleteSchedule', params: [ 'id' ], expect: {} });
+var callSetDeviceHostname = rpc.declare({ object: 'luci.bandix_plus', method: 'setDeviceHostname', params: [ 'payload' ], expect: {} });
 var callGetIfaceLimits = rpc.declare({ object: 'luci.bandix_plus', method: 'getIfaceLimits', expect: {} });
 var callSetIfaceLimit = rpc.declare({ object: 'luci.bandix_plus', method: 'setIfaceLimit', params: [ 'payload' ], expect: {} });
 var callDeleteIfaceLimit = rpc.declare({ object: 'luci.bandix_plus', method: 'deleteIfaceLimit', params: [ 'iface' ], expect: {} });
@@ -260,6 +261,17 @@ function daysText(days) {
 	return days.join(',');
 }
 
+function formatScheduleDayLabels(days) {
+	if (!days || !days.length) return '—';
+	var labels = [ '', _('Mon'), _('Tue'), _('Wed'), _('Thu'), _('Fri'), _('Sat'), _('Sun') ];
+	var parts = [];
+	for (var i = 0; i < days.length; i++) {
+		var d = asNum(days[i]);
+		parts.push(labels[d] || String(days[i]));
+	}
+	return parts.join(', ');
+}
+
 var BPLUS_TREND_MAX_POINTS = 1200;
 var BPLUS_TREND_MAX_RATE_BPS = 1024 * 1024 * 1024 * 10; // 10 GB/s guardrail
 /* Chart CSS size: parent width + fixed height (same idea as luci-app-bandix drawIncrementsChart / #history-canvas). */
@@ -327,7 +339,7 @@ function ensureCss() {
 			'id': 'bplus-status-css',
 			'rel': 'stylesheet',
 			'type': 'text/css',
-			'href': L.resource('bandix_plus/status.css', '?v=30')
+			'href': L.resource('bandix_plus/status.css', '?v=42')
 		}));
 	}
 	ensureLayoutCss();
@@ -363,6 +375,7 @@ return view.extend({
 		this.deviceSortKey = 'ipv4';
 		this.deviceSortAsc = true;
 		this.scheduleEditingId = null;
+		this.scheduleHubDevice = null;
 		this.overview = [];
 		this.devices = [];
 		this.trend = [];
@@ -381,7 +394,7 @@ return view.extend({
 			guestDefaults: [],
 			guestWhitelist: []
 		};
-		this.schDayChecks = [];
+		this.scheduleDayButtonList = [];
 	},
 
 	setThemeClass: function () {
@@ -589,6 +602,8 @@ return view.extend({
 			this.renderIfaceLimitTable();
 			this.renderGuestDefaultTable();
 			this.renderWhitelistTable();
+			if (this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.classList.contains('show'))
+				this.renderScheduleHubRulesList();
 		}, this)).catch(L.bind(function (e) {
 			if (showErr) this.notifyError(_('Failed to refresh rate-limit data'), e);
 		}, this));
@@ -898,22 +913,17 @@ return view.extend({
 				deviceTableRateTd(met, true, det),
 				deviceTableRateTd(met, false, det),
 				deviceTableBytesTd(cum, true, det),
-				deviceTableBytesTd(cum, false, det)
+				deviceTableBytesTd(cum, false, det),
+				E('td', { 'class': 'bplus-device-actions' }, [
+					E('button', {
+						'type': 'button',
+						'class': 'btn cbi-button cbi-button-action',
+						'click': L.bind(this.openScheduleModalForDevice, this, d)
+					}, [ _('Schedule') ])
+				])
 			]);
-			var fillBtn = E('button', {
-				'class': 'btn cbi-button cbi-button-action',
-				'click': L.bind(this.prefillScheduleFromDevice, this, d)
-			}, [ _('Use in Schedule') ]);
-			tr.appendChild(E('td', {}, [ E('div', { 'class': 'bplus-actions' }, [ fillBtn ]) ]));
 			body.appendChild(tr);
 		}
-	},
-
-	prefillScheduleFromDevice: function (dev) {
-		if (!this.el.schIface || !this.el.schMac) return;
-		this.el.schIface.value = dev.logical_iface || this.selectedIface || '';
-		this.el.schMac.value = dev.mac || '';
-		this.el.scheduleAnchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	},
 
 	drawTrendChart: function () {
@@ -1273,29 +1283,19 @@ return view.extend({
 		var list = this.rate.schedules || [];
 		dom.content(this.el.scheduleBody, []);
 		if (!list.length) {
-			this.el.scheduleBody.appendChild(E('tr', {}, [ E('td', { 'colspan': '7', 'class': 'bplus-empty' }, [ _('(empty)') ]) ]));
+			this.el.scheduleBody.appendChild(E('tr', {}, [ E('td', { 'colspan': '6', 'class': 'bplus-empty' }, [ _('(empty)') ]) ]));
 			return;
 		}
 		for (var i = 0; i < list.length; i++) {
 			(function (r) {
 				var t = r.time_slot || {};
-				var ops = E('td', {});
-				ops.appendChild(E('button', {
-					'class': 'btn cbi-button cbi-button-edit',
-					'click': function () { self.editSchedule(r); }
-				}, [ _('Edit') ]));
-				ops.appendChild(E('button', {
-					'class': 'btn cbi-button cbi-button-remove',
-					'click': function () { self.deleteSchedule(r.id); }
-				}, [ _('Delete') ]));
 				self.el.scheduleBody.appendChild(E('tr', {}, [
 					E('td', {}, [ String(r.id || '—') ]),
 					E('td', {}, [ String(r.iface || '—') ]),
 					E('td', {}, [ String(r.mac || '—') ]),
 					E('td', {}, [ (t.start || '--:--') + ' - ' + (t.end || '--:--') ]),
 					E('td', {}, [ daysText(t.days || []) ]),
-					E('td', {}, [ 'd4 ' + (r.down_v4_kbps || 0) + ' / d6 ' + (r.down_v6_kbps || 0) + ' / u4 ' + (r.up_v4_kbps || 0) + ' / u6 ' + (r.up_v6_kbps || 0) ]),
-					ops
+					E('td', {}, [ 'd4 ' + (r.down_v4_kbps || 0) + ' / d6 ' + (r.down_v6_kbps || 0) + ' / u4 ' + (r.up_v4_kbps || 0) + ' / u6 ' + (r.up_v6_kbps || 0) ])
 				]));
 			})(list[i]);
 		}
@@ -1373,11 +1373,140 @@ return view.extend({
 		}
 	},
 
-	editSchedule: function (r) {
+	showScheduleHubModal: function () {
+		if (this.el.scheduleHubOverlay)
+			this.el.scheduleHubOverlay.classList.add('show');
+	},
+
+	hideScheduleHubModal: function () {
+		if (this.el.scheduleHubOverlay)
+			this.el.scheduleHubOverlay.classList.remove('show');
+	},
+
+	showScheduleRuleModal: function () {
+		if (this.el.scheduleRuleOverlay)
+			this.el.scheduleRuleOverlay.classList.add('show');
+	},
+
+	hideScheduleRuleModal: function () {
+		if (this.el.scheduleRuleOverlay)
+			this.el.scheduleRuleOverlay.classList.remove('show');
+	},
+
+	normalizeMacKey: function (mac) {
+		return String(mac || '').toLowerCase().replace(/-/g, ':').trim();
+	},
+
+	fillScheduleHubFromDevice: function (dev) {
+		var hn = dev.hostname && dev.hostname !== '-' && String(dev.hostname).trim() ? String(dev.hostname) : '';
+		var primary = hn || ((dev.ipv4 && dev.ipv4.length) ? dev.ipv4[0] : '') || (dev.mac || '—');
+		var iface = dev.logical_iface || '—';
+		var ip = (dev.ipv4 && dev.ipv4.length) ? dev.ipv4.join(', ') : '—';
+		var v6 = (dev.ipv6 && dev.ipv6.length) ? dev.ipv6.join(', ') : '—';
+		this.el.scheduleHubPrimary.textContent = primary;
+		this.el.scheduleHubMeta.textContent =
+			_('Iface') + ' ' + iface + ' · MAC ' + (dev.mac || '—') + ' · IPv4 ' + ip + ' · IPv6 ' + v6;
+		this.el.scheduleHubHostnameInput.value = hn;
+	},
+
+	renderScheduleHubRulesList: function () {
+		var wrap = this.el.scheduleHubRulesList;
+		if (!wrap) return;
+		var dev = this.scheduleHubDevice;
+		dom.content(wrap, []);
+		if (!dev) return;
+		var mkey = this.normalizeMacKey(dev.mac);
+		var iface = String(dev.logical_iface || '');
+		var rules = (this.rate.schedules || []).filter(L.bind(function (r) {
+			return this.normalizeMacKey(r.mac) === mkey && String(r.iface || '') === iface;
+		}, this));
+		if (!rules.length) {
+			wrap.appendChild(E('div', { 'class': 'bplus-schedule-rules-empty' }, [ _('No scheduled rules yet; click Add rule.') ]));
+			return;
+		}
+		var self = this;
+		for (var i = 0; i < rules.length; i++) {
+			(function (r) {
+				var t = r.time_slot || {};
+				var limits = 'd4 ' + (r.down_v4_kbps || 0) + ' · d6 ' + (r.down_v6_kbps || 0) + ' · u4 ' + (r.up_v4_kbps || 0) + ' · u6 ' + (r.up_v6_kbps || 0);
+				var item = E('div', { 'class': 'bplus-schedule-rule-item' }, [
+					E('div', { 'class': 'bplus-schedule-rule-info' }, [
+						E('div', { 'class': 'bplus-schedule-rule-time' }, [ (t.start || '--:--') + ' – ' + (t.end || '--:--') ]),
+						E('div', { 'class': 'bplus-schedule-rule-days' }, [ formatScheduleDayLabels(t.days) ]),
+						E('div', { 'class': 'bplus-schedule-rule-limits bplus-mono' }, [ limits ])
+					]),
+					E('div', { 'class': 'bplus-schedule-rule-actions' }, [
+						E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-edit bplus-sch-rule-edit' }, [ _('Edit') ]),
+						E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-remove bplus-sch-rule-delete' }, [ _('Delete') ])
+					])
+				]);
+				item.querySelector('.bplus-sch-rule-edit').addEventListener('click', L.bind(self.openScheduleRuleModalForEdit, self, r));
+				item.querySelector('.bplus-sch-rule-delete').addEventListener('click', L.bind(self.deleteSchedule, self, r.id));
+				wrap.appendChild(item);
+			})(rules[i]);
+		}
+	},
+
+	submitScheduleHubHostname: function () {
+		var dev = this.scheduleHubDevice;
+		var hostname = this.el.scheduleHubHostnameInput.value.trim();
+		if (!dev || !hostname) {
+			this.notifyError(_('Hostname is required'), null);
+			return;
+		}
+		var iface = String(dev.logical_iface || '').trim();
+		var mac = String(dev.mac || '').trim();
+		if (!iface || !mac) {
+			this.notifyError(_('Iface and MAC are required'), null);
+			return;
+		}
+		callSetDeviceHostname(JSON.stringify({ iface: iface, mac: mac, hostname: hostname })).then(bplusJson).then(L.bind(function (r) {
+			if (r && r.ok === false) throw new Error(r.error || 'hostname failed');
+			ui.addNotification(null, E('p', {}, [ _('Hostname saved') ]));
+			dev.hostname = hostname;
+			this.fillScheduleHubFromDevice(dev);
+			return this.refreshLive(true);
+		}, this)).catch(L.bind(function (e) {
+			this.notifyError(_('Failed to save hostname'), e);
+		}, this));
+	},
+
+	openScheduleHub: function (dev) {
+		this.scheduleHubDevice = dev;
+		this.hideScheduleRuleModal();
+		this.resetScheduleForm();
+		this.fillScheduleHubFromDevice(dev);
+		this.renderScheduleHubRulesList();
+		this.el.scheduleHubTitle.textContent = _('Schedule rules');
+		this.showScheduleHubModal();
+	},
+
+	openScheduleModalAdd: function () {
+		ui.addNotification(null, E('p', {}, [ _('Open a device from the device table and use Schedule to manage rules.') ]));
+	},
+
+	openScheduleModalForDevice: function (dev) {
+		this.openScheduleHub(dev);
+	},
+
+	openScheduleRuleModalAdd: function () {
+		if (!this.scheduleHubDevice) return;
+		this.resetScheduleForm();
+		this.el.scheduleRuleTitle.textContent = _('Add schedule rule');
+		this.el.schSave.textContent = _('Add');
+		this.showScheduleRuleModal();
+	},
+
+	openScheduleRuleModalForEdit: function (r) {
+		this.applyScheduleRuleToForm(r);
+		this.el.scheduleRuleTitle.textContent = _('Edit schedule rule');
+		this.el.schSave.textContent = _('Update schedule');
+		this.showScheduleRuleModal();
+	},
+
+	applyScheduleRuleToForm: function (r) {
 		var t = r.time_slot || {};
 		this.scheduleEditingId = String(r.id);
-		this.el.schIface.value = r.iface || '';
-		this.el.schMac.value = r.mac || '';
 		this.el.schStart.value = t.start || '09:00';
 		this.el.schEnd.value = t.end || '18:00';
 		var daySet = {};
@@ -1385,26 +1514,41 @@ return view.extend({
 		for (var qd = 0; qd < daysArr.length; qd++) {
 			daySet[String(daysArr[qd])] = true;
 		}
-		for (var di = 0; di < this.schDayChecks.length; di++) {
-			var num = di + 1;
-			this.schDayChecks[di].checked = !!daySet[String(num)];
+		for (var di = 0; di < this.scheduleDayButtonList.length; di++) {
+			var btn = this.scheduleDayButtonList[di];
+			var num = asNum(btn.getAttribute('data-day'));
+			if (daySet[String(num)]) btn.classList.add('active');
+			else btn.classList.remove('active');
 		}
 		this.el.schD4.value = r.down_v4_kbps || 0;
 		this.el.schD6.value = r.down_v6_kbps || 0;
 		this.el.schU4.value = r.up_v4_kbps || 0;
 		this.el.schU6.value = r.up_v6_kbps || 0;
 		this.el.schSave.textContent = _('Update schedule');
-		this.el.schCancel.style.display = '';
-		this.el.scheduleAnchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	},
 
-	clearScheduleEdit: function () {
+	resetScheduleForm: function () {
 		this.scheduleEditingId = null;
-		this.el.schSave.textContent = _('Add schedule');
-		this.el.schCancel.style.display = 'none';
-		for (var di = 0; di < this.schDayChecks.length; di++) {
-			this.schDayChecks[di].checked = (di < 5);
+		this.el.schSave.textContent = _('Add');
+		for (var di = 0; di < this.scheduleDayButtonList.length; di++) {
+			var btn = this.scheduleDayButtonList[di];
+			var num = asNum(btn.getAttribute('data-day'));
+			if (num >= 1 && num <= 5) btn.classList.add('active');
+			else btn.classList.remove('active');
 		}
+		this.el.schStart.value = '09:00';
+		this.el.schEnd.value = '18:00';
+		this.el.schD4.value = '0';
+		this.el.schD6.value = '0';
+		this.el.schU4.value = '0';
+		this.el.schU6.value = '0';
+	},
+
+	closeScheduleHubAll: function () {
+		this.hideScheduleRuleModal();
+		this.hideScheduleHubModal();
+		this.scheduleHubDevice = null;
+		this.resetScheduleForm();
 	},
 
 	deleteSchedule: function (id) {
@@ -1413,6 +1557,9 @@ return view.extend({
 			if (r && r.ok === false) throw new Error(r.error || 'delete failed');
 			ui.addNotification(null, E('p', {}, [ _('Deleted') ]));
 			return this.refreshRateData(false);
+		}, this)).then(L.bind(function () {
+			if (this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.classList.contains('show'))
+				this.renderScheduleHubRulesList();
 		}, this)).catch(L.bind(function (e) {
 			this.notifyError(_('Failed to delete schedule'), e);
 		}, this));
@@ -1451,16 +1598,30 @@ return view.extend({
 	submitSchedule: function (ev) {
 		ev.preventDefault();
 		var days = [];
-		for (var di = 0; di < this.schDayChecks.length; di++) {
-			if (this.schDayChecks[di].checked) days.push(di + 1);
+		for (var di = 0; di < this.scheduleDayButtonList.length; di++) {
+			var b = this.scheduleDayButtonList[di];
+			if (b.classList.contains('active'))
+				days.push(asNum(b.getAttribute('data-day')));
 		}
+		days.sort(function (a, b) { return a - b; });
 		if (!days.length) {
 			this.notifyError(_('Invalid days'), null);
 			return;
 		}
+		var dev = this.scheduleHubDevice;
+		if (!dev) {
+			this.notifyError(_('No device context'), null);
+			return;
+		}
+		var iface = String(dev.logical_iface || '').trim();
+		var mac = String(dev.mac || '').trim();
+		if (!iface || !mac) {
+			this.notifyError(_('Iface and MAC are required'), null);
+			return;
+		}
 		var payload = {
-			iface: this.el.schIface.value.trim(),
-			mac: this.el.schMac.value.trim(),
+			iface: iface,
+			mac: mac,
 			time_slot: {
 				start: this.el.schStart.value || '00:00',
 				end: this.el.schEnd.value || '23:59',
@@ -1471,10 +1632,6 @@ return view.extend({
 			up_v4_kbps: asNum(this.el.schU4.value),
 			up_v6_kbps: asNum(this.el.schU6.value)
 		};
-		if (!payload.iface || !payload.mac) {
-			this.notifyError(_('Iface and MAC are required'), null);
-			return;
-		}
 
 		var req = this.scheduleEditingId ?
 			callUpdateSchedule([ this.scheduleEditingId, payload ]) :
@@ -1482,9 +1639,14 @@ return view.extend({
 
 		req.then(bplusJson).then(L.bind(function (r) {
 			if (r && r.ok === false) throw new Error(r.error || 'submit failed');
-			ui.addNotification(null, E('p', {}, [ this.scheduleEditingId ? _('Schedule updated') : _('Schedule added') ]));
-			this.clearScheduleEdit();
+			var wasEdit = !!this.scheduleEditingId;
+			ui.addNotification(null, E('p', {}, [ wasEdit ? _('Schedule updated') : _('Schedule added') ]));
+			this.hideScheduleRuleModal();
+			this.resetScheduleForm();
 			return this.refreshRateData(false);
+		}, this)).then(L.bind(function () {
+			if (this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.classList.contains('show'))
+				this.renderScheduleHubRulesList();
 		}, this)).catch(L.bind(function (e) {
 			this.notifyError(_('Failed to submit schedule'), e);
 		}, this));
@@ -1558,7 +1720,7 @@ return view.extend({
 		var opts = this.overview.map(function (x) {
 			return E('option', { 'value': x.ifname }, [ x.ifname ]);
 		});
-		var targets = [ this.el.schIfaceList, this.el.ifLimitIfaceList, this.el.guestDefIfaceList, this.el.wlIfaceList ];
+		var targets = [ this.el.ifLimitIfaceList, this.el.guestDefIfaceList, this.el.wlIfaceList ];
 		for (var i = 0; i < targets.length; i++) {
 			if (!targets[i]) continue;
 			dom.content(targets[i], []);
@@ -1955,8 +2117,22 @@ return view.extend({
 		this.el.scheduleForm.addEventListener('submit', L.bind(this.submitSchedule, this));
 		this.el.schCancel.addEventListener('click', L.bind(function (ev) {
 			ev.preventDefault();
-			this.clearScheduleEdit();
+			this.hideScheduleRuleModal();
 		}, this));
+		this.el.scheduleRuleDismiss.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.hideScheduleRuleModal();
+		}, this));
+		this.el.scheduleHubDismiss.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.closeScheduleHubAll();
+		}, this));
+		this.el.scheduleHubCloseBtn.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.closeScheduleHubAll();
+		}, this));
+		this.el.scheduleHubAddRuleBtn.addEventListener('click', L.bind(this.openScheduleRuleModalAdd, this));
+		this.el.scheduleHubHostnameSave.addEventListener('click', L.bind(this.submitScheduleHubHostname, this));
 		this.el.ifaceLimitForm.addEventListener('submit', L.bind(this.submitIfaceLimit, this));
 		this.el.guestDefaultForm.addEventListener('submit', L.bind(this.submitGuestDefault, this));
 		this.el.whitelistForm.addEventListener('submit', L.bind(this.submitWhitelist, this));
@@ -2031,47 +2207,136 @@ return view.extend({
 		this.el.guestDefaultBody = E('tbody');
 		this.el.whitelistBody = E('tbody');
 
-		this.el.scheduleAnchor = E('div');
-		this.el.schIfaceList = E('datalist', { 'id': 'bplus_sch_iface_list' });
 		this.el.ifLimitIfaceList = E('datalist', { 'id': 'bplus_iflimit_iface_list' });
 		this.el.guestDefIfaceList = E('datalist', { 'id': 'bplus_guest_iface_list' });
 		this.el.wlIfaceList = E('datalist', { 'id': 'bplus_wl_iface_list' });
 
-		this.el.schIface = E('input', { 'class': 'cbi-input-text', 'list': 'bplus_sch_iface_list', 'placeholder': 'eth0' });
-		this.el.schMac = E('input', { 'class': 'cbi-input-text bplus-mono', 'placeholder': 'aa:bb:cc:dd:ee:ff' });
-		this.el.schStart = E('input', { 'class': 'cbi-input-text', 'type': 'time', 'value': '09:00' });
-		this.el.schEnd = E('input', { 'class': 'cbi-input-text', 'type': 'time', 'value': '18:00' });
-		this.el.schD4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '100' });
-		this.el.schD6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '100' });
-		this.el.schU4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '100' });
-		this.el.schU6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '100' });
-		this.el.schSave = E('button', { 'class': 'btn cbi-button cbi-button-save', 'type': 'submit' }, [ _('Add schedule') ]);
-		this.el.schCancel = E('button', { 'class': 'btn cbi-button cbi-button-reset', 'type': 'button', 'style': 'display:none;' }, [ _('Cancel edit') ]);
+		this.el.schStart = E('input', { 'class': 'cbi-input-text bplus-schedule-time-input', 'type': 'time', 'value': '09:00' });
+		this.el.schEnd = E('input', { 'class': 'cbi-input-text bplus-schedule-time-input', 'type': 'time', 'value': '18:00' });
+		this.el.schD4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
+		this.el.schD6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
+		this.el.schU4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
+		this.el.schU6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
+		this.el.schSave = E('button', { 'class': 'btn cbi-button cbi-button-save', 'type': 'submit' }, [ _('Add') ]);
+		this.el.schCancel = E('button', { 'class': 'btn cbi-button cbi-button-reset', 'type': 'button' }, [ _('Cancel') ]);
+		this.el.scheduleRuleDismiss = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-reset bplus-modal-dismiss', 'aria-label': 'Close' }, [ '×' ]);
 
-		this.schDayChecks = [];
-		var daysRow = E('div', { 'class': 'days-row' });
+		this.el.scheduleDayWrap = E('div', { 'class': 'bplus-schedule-days' });
+		var dayLabels = [ _('Mon'), _('Tue'), _('Wed'), _('Thu'), _('Fri'), _('Sat'), _('Sun') ];
 		for (var dnx = 1; dnx <= 7; dnx++) {
-			var cb = E('input', { 'type': 'checkbox', 'value': String(dnx) });
-			if (dnx <= 5) cb.checked = true;
-			this.schDayChecks.push(cb);
-			daysRow.appendChild(E('label', {}, [ cb, ' ' + String(dnx) ]));
+			var dayBtn = E('button', {
+				'type': 'button',
+				'class': 'bplus-schedule-day-btn' + (dnx <= 5 ? ' active' : ''),
+				'data-day': String(dnx)
+			}, [ dayLabels[dnx - 1] ]);
+			this.el.scheduleDayWrap.appendChild(dayBtn);
 		}
+		this.el.scheduleDayWrap.addEventListener('click', L.bind(function (ev) {
+			var t = ev.target;
+			if (t && t.classList && t.classList.contains('bplus-schedule-day-btn'))
+				t.classList.toggle('active');
+		}, this));
 
-		this.el.scheduleForm = E('form', { 'class': 'form-grid' }, [
-			E('label', { 'class': 'field' }, [ _('Iface'), this.el.schIface ]),
-			E('label', { 'class': 'field' }, [ 'MAC', this.el.schMac ]),
-			E('label', { 'class': 'field' }, [ _('Start'), this.el.schStart ]),
-			E('label', { 'class': 'field' }, [ _('End'), this.el.schEnd ]),
-			E('div', { 'class': 'field field-wide' }, [
-				E('span', {}, [ _('Effective days (1–7)') ]),
-				daysRow
+		this.el.scheduleForm = E('form', { 'class': 'bplus-schedule-form' }, [
+			E('div', { 'class': 'bplus-form-group' }, [
+				E('label', { 'class': 'bplus-form-label' }, [ _('Time slot') ]),
+				E('div', { 'class': 'bplus-schedule-time-row' }, [
+					this.el.schStart,
+					E('span', { 'class': 'bplus-schedule-time-sep' }, [ ' — ' ]),
+					this.el.schEnd
+				])
 			]),
-			E('label', { 'class': 'field' }, [ 'down v4 (MB/s)', this.el.schD4 ]),
-			E('label', { 'class': 'field' }, [ 'down v6 (MB/s)', this.el.schD6 ]),
-			E('label', { 'class': 'field' }, [ 'up v4 (MB/s)', this.el.schU4 ]),
-			E('label', { 'class': 'field' }, [ 'up v6 (MB/s)', this.el.schU6 ]),
-			E('div', { 'class': 'actions-row field-wide' }, [ this.el.schSave, this.el.schCancel ])
+			E('div', { 'class': 'bplus-form-group' }, [
+				E('label', { 'class': 'bplus-form-label' }, [ _('Days of week') ]),
+				this.el.scheduleDayWrap
+			]),
+			E('div', { 'class': 'bplus-form-group bplus-schedule-limits-block' }, [
+				E('label', { 'class': 'bplus-form-label' }, [ _('Download') + ' (kbps)' ]),
+				E('div', { 'class': 'bplus-schedule-rate-pair' }, [
+					E('div', { 'class': 'bplus-schedule-rate-col' }, [
+						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv4' ]),
+						this.el.schD4
+					]),
+					E('div', { 'class': 'bplus-schedule-rate-col' }, [
+						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv6' ]),
+						this.el.schD6
+					])
+				]),
+				E('div', { 'class': 'bplus-form-hint' }, [ _('Tip: 0 means unlimited') ])
+			]),
+			E('div', { 'class': 'bplus-form-group bplus-schedule-limits-block' }, [
+				E('label', { 'class': 'bplus-form-label' }, [ _('Upload') + ' (kbps)' ]),
+				E('div', { 'class': 'bplus-schedule-rate-pair' }, [
+					E('div', { 'class': 'bplus-schedule-rate-col' }, [
+						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv4' ]),
+						this.el.schU4
+					]),
+					E('div', { 'class': 'bplus-schedule-rate-col' }, [
+						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv6' ]),
+						this.el.schU6
+					])
+				]),
+				E('div', { 'class': 'bplus-form-hint' }, [ _('Tip: 0 means unlimited') ])
+			]),
+			E('div', { 'class': 'bplus-modal-form-footer' }, [ this.el.schCancel, this.el.schSave ])
 		]);
+
+		this.scheduleDayButtonList = Array.prototype.slice.call(this.el.scheduleDayWrap.querySelectorAll('.bplus-schedule-day-btn'));
+
+		this.el.scheduleRuleTitle = E('h3', { 'class': 'bplus-modal-title' }, [ _('Add schedule rule') ]);
+		this.el.scheduleRulePanel = E('div', { 'class': 'bplus-modal-panel bplus-modal-panel--rule' }, [
+			E('div', { 'class': 'bplus-modal-header' }, [
+				this.el.scheduleRuleTitle,
+				this.el.scheduleRuleDismiss
+			]),
+			E('div', { 'class': 'bplus-modal-body' }, [ this.el.scheduleForm ])
+		]);
+		this.el.scheduleRuleOverlay = E('div', {
+			'class': 'bplus-modal-overlay bplus-modal-overlay--stack',
+			'id': 'bplus-schedule-rule-modal',
+			'click': L.bind(function (ev) {
+				if (ev.target === this.el.scheduleRuleOverlay)
+					this.hideScheduleRuleModal();
+			}, this)
+		}, [ this.el.scheduleRulePanel ]);
+
+		this.el.scheduleHubPrimary = E('div', { 'class': 'bplus-schedule-hub-primary' });
+		this.el.scheduleHubMeta = E('div', { 'class': 'bplus-schedule-hub-meta' });
+		this.el.scheduleHubHostnameInput = E('input', { 'class': 'cbi-input-text', 'type': 'text', 'placeholder': _('Device hostname') });
+		this.el.scheduleHubHostnameSave = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-save' }, [ _('Save') ]);
+		this.el.scheduleHubAddRuleBtn = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-action' }, [ _('Add rule') ]);
+		this.el.scheduleHubRulesList = E('div', { 'class': 'bplus-schedule-rules-list' });
+		this.el.scheduleHubCloseBtn = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-reset' }, [ _('Close') ]);
+		this.el.scheduleHubDismiss = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-reset bplus-modal-dismiss', 'aria-label': 'Close' }, [ '×' ]);
+		this.el.scheduleHubTitle = E('h3', { 'class': 'bplus-modal-title' }, [ _('Schedule rules') ]);
+		this.el.scheduleHubPanel = E('div', { 'class': 'bplus-modal-panel bplus-modal-panel--hub' }, [
+			E('div', { 'class': 'bplus-modal-header' }, [ this.el.scheduleHubTitle, this.el.scheduleHubDismiss ]),
+			E('div', { 'class': 'bplus-modal-body' }, [
+				E('div', { 'class': 'bplus-schedule-hub-summary' }, [ this.el.scheduleHubPrimary, this.el.scheduleHubMeta ]),
+				E('div', { 'class': 'bplus-form-group bplus-schedule-hostname-block' }, [
+					E('label', { 'class': 'bplus-form-label' }, [ _('Hostname') ]),
+					E('div', { 'class': 'bplus-schedule-hostname-actions' }, [
+						this.el.scheduleHubHostnameInput,
+						this.el.scheduleHubHostnameSave
+					]),
+					E('div', { 'class': 'bplus-form-hint' }, [ _('Set hostname for this device.') ])
+				]),
+				E('div', { 'class': 'bplus-schedule-hub-toolbar' }, [
+					E('span', { 'class': 'bplus-subline' }, [ _('Scheduled rate limits (kbps)') ]),
+					this.el.scheduleHubAddRuleBtn
+				]),
+				this.el.scheduleHubRulesList,
+				E('div', { 'class': 'bplus-modal-form-footer' }, [ this.el.scheduleHubCloseBtn ])
+			])
+		]);
+		this.el.scheduleHubOverlay = E('div', {
+			'class': 'bplus-modal-overlay',
+			'id': 'bplus-schedule-hub-modal',
+			'click': L.bind(function (ev) {
+				if (ev.target === this.el.scheduleHubOverlay)
+					this.closeScheduleHubAll();
+			}, this)
+		}, [ this.el.scheduleHubPanel ]);
 
 		this.el.ifLimitIface = E('input', { 'class': 'cbi-input-text', 'list': 'bplus_iflimit_iface_list', 'placeholder': 'eth0' });
 		this.el.ifLimitD4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '0' });
@@ -2305,12 +2570,10 @@ return view.extend({
 						]),
 						E('article', { 'class': 'policy-card' }, [
 							E('h3', {}, [ 'Schedules' ]),
-							this.el.scheduleAnchor,
-							this.el.schIfaceList,
-							this.el.scheduleForm,
+							E('p', { 'class': 'bplus-subline', 'style': 'margin:0 0 10px 0' }, [ _('Overview of all schedules. Add, edit, or delete rules from the device table (Schedule on each row).') ]),
 							E('div', { 'class': 'table-wrapper compact' }, [
 								E('table', { 'class': 'table bplus-table' }, [
-									E('thead', {}, [ E('tr', {}, [ E('th', {}, [ 'id' ]), E('th', {}, [ 'iface' ]), E('th', {}, [ 'mac' ]), E('th', {}, [ 'time' ]), E('th', {}, [ 'days' ]), E('th', {}, [ _('limits') ]), E('th', {}, [ _('actions') ]) ]) ]),
+									E('thead', {}, [ E('tr', {}, [ E('th', {}, [ 'id' ]), E('th', {}, [ 'iface' ]), E('th', {}, [ 'mac' ]), E('th', {}, [ 'time' ]), E('th', {}, [ 'days' ]), E('th', {}, [ _('limits') ]) ]) ]),
 									this.el.scheduleBody
 								])
 							])
@@ -2360,6 +2623,10 @@ return view.extend({
 		ensureCss();
 		this.initState(load);
 		var viewNode = this.buildView();
+		if (this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.parentNode !== this.root)
+			this.root.appendChild(this.el.scheduleHubOverlay);
+		if (this.el.scheduleRuleOverlay && this.el.scheduleRuleOverlay.parentNode !== this.root)
+			this.root.appendChild(this.el.scheduleRuleOverlay);
 		this.setThemeClass();
 		this.bindEvents();
 
