@@ -34,6 +34,13 @@ var callGetHistogram = rpc.declare({
 	expect: {}
 });
 
+var callGetUsageRanking = rpc.declare({
+	object: 'luci.bandix_plus',
+	method: 'getUsageRanking',
+	params: [ 'iface', 'traffic_type', 'start_ms', 'end_ms', 'limit' ],
+	expect: {}
+});
+
 var callGetSchedules = rpc.declare({ object: 'luci.bandix_plus', method: 'getSchedules', expect: {} });
 var callCreateSchedule = rpc.declare({ object: 'luci.bandix_plus', method: 'createSchedule', params: [ 'payload' ], expect: {} });
 var callUpdateSchedule = rpc.declare({ object: 'luci.bandix_plus', method: 'updateSchedule', params: [ 'pair' ], expect: {} });
@@ -406,6 +413,8 @@ return view.extend({
 		this.trend = [];
 		this.trendRaw = [];
 		this.histogram = [];
+		this.usageRanking = [];
+		this.usageRankingShowAll = false;
 		this.chartScale = 1;
 		this.chartOffset = 0;
 		this.chartHoverIndex = null;
@@ -449,6 +458,95 @@ return view.extend({
 		var widthPercent = Math.min(100, (selectedRange / totalRange) * 100);
 		timelineRange.style.left = leftPercent + '%';
 		timelineRange.style.width = widthPercent + '%';
+	},
+
+	renderUsageRanking: function () {
+		var list = Array.isArray(this.usageRanking) ? this.usageRanking : [];
+		var wrap = this.el.rankWrap;
+		if (!wrap) return;
+		dom.content(wrap, []);
+
+		if (this.el.rankTimerange) {
+			var start = dateStartMs(this.el.statsStart.value);
+			var end = dateEndMs(this.el.statsEnd.value);
+			this.el.rankTimerange.textContent = (start != null && end != null) ? formatSlashDateTimeRange(start, end) : '';
+		}
+
+		if (!list.length) {
+			wrap.appendChild(E('div', { 'class': 'loading-state' }, [ _('No data') ]));
+			return;
+		}
+
+		var maxTotal = 0;
+		for (var mi = 0; mi < list.length; mi++)
+			maxTotal = Math.max(maxTotal, asNum((list[mi] || {}).total_bytes));
+		if (maxTotal <= 0) maxTotal = 1;
+
+		var DEFAULT_LIMIT = 10;
+		var showAll = !!this.usageRankingShowAll;
+		var displayList = showAll ? list : list.slice(0, DEFAULT_LIMIT);
+
+		var rankingList = E('div', { 'class': 'usage-ranking-list' });
+		for (var i = 0; i < displayList.length; i++) {
+			var x = displayList[i] || {};
+			var hn = String(x.hostname || '').trim();
+			var mac = String(x.mac || '—');
+			var ip4 = Array.isArray(x.ipv4) && x.ipv4.length ? String(x.ipv4[0]) : '';
+			var up = asNum(x.up_bytes);
+			var down = asNum(x.down_bytes);
+			var total = asNum(x.total_bytes);
+			var pct = (total / maxTotal) * 100;
+
+			rankingList.appendChild(E('div', {
+				'class': 'usage-ranking-item',
+				'style': '--progress-width: ' + pct.toFixed(2) + '%;'
+			}, [
+				E('div', { 'class': 'usage-ranking-rank' }, [ String(i + 1) ]),
+				E('div', { 'class': 'usage-ranking-info' }, [
+					E('div', { 'class': 'usage-ranking-device' }, [
+						E('div', { 'class': 'usage-ranking-name' }, [ hn || ip4 || mac ]),
+						E('div', { 'class': 'usage-ranking-meta' }, [
+							E('span', {}, [ ip4 || '—' ]),
+							E('span', {}, [ mac ]),
+							E('span', { 'class': 'usage-ranking-meta-total' }, [ formatBytes(total) ])
+						])
+					]),
+					E('div', { 'class': 'usage-ranking-stats' }, [
+						E('div', { 'class': 'usage-ranking-traffic' }, [
+							E('span', { 'class': 'usage-ranking-traffic-item tx' }, [
+								E('span', { 'class': 'usage-ranking-traffic-arrow' }, [ '↑' ]),
+								E('span', {}, [ formatBytes(up) ])
+							]),
+							E('span', { 'class': 'usage-ranking-traffic-item rx' }, [
+								E('span', { 'class': 'usage-ranking-traffic-arrow' }, [ '↓' ]),
+								E('span', {}, [ formatBytes(down) ])
+							]),
+							E('span', { 'class': 'usage-ranking-traffic-item total' }, [ formatBytes(total) ])
+						])
+					])
+				])
+			]));
+		}
+		wrap.appendChild(rankingList);
+
+		if (list.length > DEFAULT_LIMIT) {
+			var toggleBtn = E('button', { 'type': 'button', 'class': 'usage-ranking-toggle-btn' }, [
+				showAll ? _('Show Top %d').format(DEFAULT_LIMIT) : _('Show All')
+			]);
+			toggleBtn.addEventListener('click', L.bind(function (ev) {
+				ev.preventDefault();
+				ev.stopPropagation();
+				this.usageRankingShowAll = !this.usageRankingShowAll;
+				this.renderUsageRanking();
+			}, this));
+
+			wrap.appendChild(E('div', { 'class': 'usage-ranking-controls' }, [
+				E('span', { 'class': 'usage-ranking-info-text' }, [
+					showAll ? _('Showing all %d devices').format(list.length) : _('Showing top %d of %d devices').format(displayList.length, list.length)
+				]),
+				toggleBtn
+			]));
+		}
 	},
 
 	updateStatsHistogramSummary: function () {
@@ -812,7 +910,21 @@ return view.extend({
 		}
 		if (old) sel.value = old;
 		if (!sel.value && this.overview.length) sel.value = this.overview[0].ifname;
+		this.renderUsageRankingIfaceOptions();
 		this.renderStatsMacOptions();
+	},
+
+	renderUsageRankingIfaceOptions: function () {
+		var sel = this.el.rankIface;
+		if (!sel) return;
+		var old = sel.value || (this.el.statsIface ? this.el.statsIface.value : '') || this.selectedIface;
+		dom.content(sel, []);
+		for (var i = 0; i < this.overview.length; i++) {
+			var o = this.overview[i];
+			sel.appendChild(E('option', { 'value': o.ifname }, [ o.ifname + ' (' + (o.zone || '—') + ')' ]));
+		}
+		if (old) sel.value = old;
+		if (!sel.value && this.overview.length) sel.value = this.overview[0].ifname;
 	},
 
 	renderStatsMacOptions: function () {
@@ -1975,15 +2087,22 @@ return view.extend({
 		var macF = this.el.statsMacSelect ? (this.el.statsMacSelect.value || '').trim() : '';
 		var tt = this.el.statsTrafficTypeSelect ? (this.el.statsTrafficTypeSelect.value || 'all') : 'all';
 		if (tt === 'all') tt = '';
+		var rankIface = this.el.rankIface ? (this.el.rankIface.value || '').trim() : '';
+		if (!rankIface) rankIface = iface;
 
-		callGetHistogram(iface, macF, tt || 'all', String(start), String(end), bucket)
-			.then(function (r) { return unwrapData(r, []); })
-			.then(L.bind(function (hist) {
-				this.histogram = hist || [];
-				this.drawStatsChart();
-				this.updateStatsHistogramSummary();
-				this.updateStatsHistogramTimeline();
-			}, this))
+		Promise.all([
+			callGetHistogram(iface, macF, tt || 'all', String(start), String(end), bucket)
+				.then(function (r) { return unwrapData(r, []); }),
+			callGetUsageRanking(rankIface, tt || 'all', String(start), String(end), '50')
+				.then(function (r) { return unwrapData(r, []); })
+		]).then(L.bind(function (res) {
+			this.histogram = res[0] || [];
+			this.usageRanking = res[1] || [];
+			this.drawStatsChart();
+			this.updateStatsHistogramSummary();
+			this.updateStatsHistogramTimeline();
+			this.renderUsageRanking();
+		}, this))
 			.catch(L.bind(function (e) {
 				this.notifyError(_('Failed to query statistics'), e);
 			}, this))
@@ -2124,6 +2243,12 @@ return view.extend({
 				this.queryStatsIfIfaceSelected();
 			}, this));
 		}
+
+		if (this.el.rankIface) {
+			this.el.rankIface.addEventListener('change', L.bind(function () {
+				this.queryStatsIfIfaceSelected();
+			}, this));
+		}
 		if (this.el.statsTrafficTypeSelect) {
 			this.el.statsTrafficTypeSelect.addEventListener('change', L.bind(this.queryStatsIfIfaceSelected, this));
 		}
@@ -2232,6 +2357,11 @@ return view.extend({
 		this.el.trendTooltip = E('div', { 'class': 'bplus-tooltip history-tooltip' });
 		this.el.deviceHead = E('thead');
 		this.el.deviceBody = E('tbody');
+
+		this.el.rankIface = E('select', { 'class': 'cbi-input-select', 'id': 'bplus-rank-iface' });
+		this.el.rankWrap = E('div', { 'id': 'bplus-usage-ranking-container' }, [
+			E('div', { 'class': 'loading-state' }, [ _('Loading...') ])
+		]);
 
 		this.el.ifaceLimitBody = E('tbody');
 		this.el.guestDefaultBody = E('tbody');
@@ -2456,6 +2586,7 @@ return view.extend({
 		this.el.statsTimeline = E('div', { 'class': 'usage-ranking-timeline', 'id': 'bplus-hstats-timeline' }, [
 			this.el.statsTimelineRange = E('div', { 'class': 'usage-ranking-timeline-range', 'id': 'bplus-hstats-timeline-range' })
 		]);
+		this.el.rankTimerange = E('span', { 'class': 'usage-ranking-timerange', 'id': 'bplus-usage-ranking-timerange' }, []);
 		this.el.statsHistogramTimerange = E('span', { 'class': 'usage-ranking-timerange', 'id': 'bplus-hstats-timerange' }, []);
 		this.el.statsCanvas = E('canvas', { 'class': 'bplus-chart-canvas bplus-stats-chart' });
 		this.el.statsTooltip = E('div', { 'class': 'bplus-tooltip traffic-increments-tooltip' });
@@ -2550,9 +2681,21 @@ return view.extend({
 					E('div', { 'class': 'table-wrapper' }, [ E('table', { 'class': 'table bplus-table bplus-table--devices' }, [ this.el.deviceHead, this.el.deviceBody ]) ])
 				]),
 
+				E('section', { 'class': 'bplus-panel bplus-usage-ranking-section' }, [
+					E('div', { 'class': 'usage-ranking-header' }, [
+						E('h4', { 'class': 'usage-ranking-title' }, [ E('span', {}, [ _('Device Usage Ranking') ]) ]),
+						E('div', { 'class': 'usage-ranking-network-type-wrapper' }, [
+							E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-rank-iface' }, [ _('Iface') ]),
+							this.el.rankIface
+						]),
+						this.el.rankTimerange
+					]),
+					this.el.rankWrap
+				]),
+
 				E('section', { 'class': 'bplus-panel bplus-histogram-section' }, [
 					E('div', { 'class': 'usage-ranking-header' }, [
-						E('h4', { 'class': 'usage-ranking-title' }, [ E('span', {}, [ _('Histogram') ]) ]),
+						E('h4', { 'class': 'usage-ranking-title' }, [ E('span', {}, [ _('流量时间线') ]) ]),
 						this.el.statsHistogramTimerange
 					]),
 					E('div', { 'class': 'traffic-increments-query' }, [
