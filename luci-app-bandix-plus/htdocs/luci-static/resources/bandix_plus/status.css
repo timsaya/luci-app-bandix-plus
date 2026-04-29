@@ -1130,7 +1130,8 @@
 }
 
 /* Histogram controls (layout matches luci-app-bandix Traffic Timeline) */
-.bplus-page .bplus-histogram-section .usage-ranking-header {
+.bplus-page .bplus-histogram-section .usage-ranking-header,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1139,13 +1140,15 @@
   margin-bottom: 12px;
 }
 
-.bplus-page .bplus-histogram-section .usage-ranking-title {
+.bplus-page .bplus-histogram-section .usage-ranking-title,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
 }
 
-.bplus-page .bplus-histogram-section .usage-ranking-timerange {
+.bplus-page .bplus-histogram-section .usage-ranking-timerange,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-timerange {
   font-size: 0.8125rem;
   opacity: 0.75;
   font-weight: 400;
@@ -1155,6 +1158,201 @@
   min-width: min(100%, 14em);
 }
 
+.bplus-page .bplus-usage-ranking-section .usage-ranking-network-type-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 180px;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-network-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  opacity: 0.7;
+  color: var(--bplus-sub);
+}
+
+/* Device usage ranking list (ported from luci-app-bandix) */
+.bplus-page .bplus-usage-ranking-section .usage-ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.bplus-page.theme-dark .bplus-usage-ranking-section .usage-ranking-item {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-item:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.bplus-page.theme-dark .bplus-usage-ranking-section .usage-ranking-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--progress-width, 0%);
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.18) 0%, rgba(59, 130, 246, 0.10) 100%);
+  z-index: 0;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-item > * {
+  position: relative;
+  z-index: 1;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-device {
+  flex: 1;
+  min-width: 0;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 0.75rem;
+  opacity: 0.6;
+  font-family: monospace;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-meta > span {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-meta-total {
+  opacity: 0.95;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-traffic {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-traffic-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-traffic-item.rx {
+  color: var(--bplus-down);
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-traffic-item.tx {
+  color: var(--bplus-up);
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-traffic-item.total {
+  color: var(--bplus-sub);
+  font-weight: 600;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-traffic-arrow {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 12px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  border: 1px solid var(--bplus-border);
+}
+
+.bplus-page.theme-dark .bplus-usage-ranking-section .usage-ranking-controls {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-info-text {
+  opacity: 0.75;
+  color: var(--bplus-sub);
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-toggle-btn {
+  padding: 6px 12px;
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-toggle-btn:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
 .bplus-page .bplus-histogram-section .traffic-increments-query {
   margin-bottom: 12px;
   padding: 16px;

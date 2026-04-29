@@ -83,6 +83,13 @@ case "$1" in
 		json_add_string "end_ms"
 		json_add_string "bucket"
 		json_close_object
+		json_add_object "getUsageRanking"
+		json_add_string "iface"
+		json_add_string "traffic_type"
+		json_add_string "start_ms"
+		json_add_string "end_ms"
+		json_add_string "limit"
+		json_close_object
 		json_add_object "getPolicy"
 		json_close_object
 		json_add_object "getSchedules"
@@ -209,6 +216,26 @@ case "$1" in
 				[ -n "$e_ms" ] && qs="${qs}${qs:+&}end_ms=$e_ms"
 				[ -n "$bucket" ] && qs="${qs}${qs:+&}bucket=$bucket"
 				[ -n "$qs" ] && bplus_get "$BASE/api/histogram?$qs" || bplus_get "$BASE/api/histogram"
+				;;
+			getUsageRanking)
+				input=""
+				read -t 1 -r input || true
+				iface="${3:-}"; ttype="${4:-}"; s_ms="${5:-}"; e_ms="${6:-}"; lim="${7:-}"
+				if [ -n "$input" ]; then
+					[ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$.iface' 2>/dev/null)"
+					[ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$[0]' 2>/dev/null)"
+					[ -z "$ttype" ] && ttype="$(echo "$input" | jsonfilter -e '$.traffic_type' 2>/dev/null)"
+					[ -z "$s_ms" ] && s_ms="$(echo "$input" | jsonfilter -e '$.start_ms' 2>/dev/null)"
+					[ -z "$e_ms" ] && e_ms="$(echo "$input" | jsonfilter -e '$.end_ms' 2>/dev/null)"
+					[ -z "$lim" ] && lim="$(echo "$input" | jsonfilter -e '$.limit' 2>/dev/null)"
+				fi
+				qs=""
+				[ -n "$iface" ] && qs="iface=$(printf %s "$iface" | sed 's/ /%20/g')"
+				[ -n "$ttype" ] && qs="${qs}${qs:+&}traffic_type=$(printf %s "$ttype" | sed 's/ /%20/g')"
+				[ -n "$s_ms" ] && qs="${qs}${qs:+&}start_ms=$s_ms"
+				[ -n "$e_ms" ] && qs="${qs}${qs:+&}end_ms=$e_ms"
+				[ -n "$lim" ] && qs="${qs}${qs:+&}limit=$lim"
+				[ -n "$qs" ] && bplus_get "$BASE/api/usage_ranking?$qs" || bplus_get "$BASE/api/usage_ranking"
 				;;
 			getPolicy) bplus_get "$BASE/api/policy" ;;
 			getSchedules) bplus_get "$BASE/api/rate_limit/schedules" ;;
