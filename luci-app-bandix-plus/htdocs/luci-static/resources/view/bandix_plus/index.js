@@ -413,9 +413,68 @@ var BPLUS_TREND_MAX_RATE_BPS = 1024 * 1024 * 1024 * 10; // 10 GB/s guardrail
 /* Chart CSS size: parent width + fixed height (same idea as luci-app-bandix drawIncrementsChart / #history-canvas). */
 var BPLUS_TREND_CHART_CSS_H = 220;
 var BPLUS_STATS_CHART_CSS_H = 280;
+var BPLUS_STATS_CHUNK_MS_HOURLY = 14 * 24 * 60 * 60 * 1000; // 14 days
+var BPLUS_STATS_CHUNK_MS_DAILY = 60 * 24 * 60 * 60 * 1000; // 60 days
 /* luci-app-bandix drawIncrementsChart: TX=upload orange, RX=download cyan */
 var BPLUS_HIST_COLOR_UP = '#f97316';
 var BPLUS_HIST_COLOR_DOWN = '#06b6d4';
+
+function buildStatsHistogramChunks(startMs, endMs, bucket) {
+	if (!startMs || !endMs || endMs <= startMs)
+		return null;
+	var chunkMs = bucket === 'daily' ? BPLUS_STATS_CHUNK_MS_DAILY : BPLUS_STATS_CHUNK_MS_HOURLY;
+	var totalRange = endMs - startMs;
+	if (totalRange <= chunkMs)
+		return null;
+	var chunks = [];
+	for (var cursor = startMs; cursor < endMs; cursor += chunkMs)
+		chunks.push({ start: cursor, end: Math.min(cursor + chunkMs, endMs) });
+	return chunks.length > 1 ? chunks : null;
+}
+
+function fetchStatsHistogramChunked(iface, mac, trafficType, startMs, endMs, bucket, onProgress) {
+	var chunks = buildStatsHistogramChunks(startMs, endMs, bucket);
+	if (!chunks) {
+		return callGetHistogram(iface, mac, trafficType, String(startMs), String(endMs), bucket)
+			.then(function (r) { return unwrapData(r, []); });
+	}
+	if (typeof onProgress === 'function')
+		onProgress(0, chunks.length);
+	var chain = Promise.resolve([]);
+	var done = 0;
+	chunks.forEach(function (chunk) {
+		chain = chain.then(function (acc) {
+			return callGetHistogram(iface, mac, trafficType, String(chunk.start), String(chunk.end), bucket)
+				.then(function (r) { return unwrapData(r, []); })
+				.then(function (part) {
+					done += 1;
+					if (typeof onProgress === 'function')
+						onProgress(done, chunks.length);
+					if (Array.isArray(part) && part.length)
+						return acc.concat(part);
+					return acc;
+				});
+		});
+	});
+	return chain.then(function (all) {
+		if (!Array.isArray(all) || !all.length)
+			return [];
+		all.sort(function (a, b) {
+			return asNum((a || {}).start_ts_ms) - asNum((b || {}).start_ts_ms);
+		});
+		var out = [];
+		var lastKey = null;
+		for (var i = 0; i < all.length; i++) {
+			var row = all[i] || {};
+			var key = String(asNum(row.start_ts_ms));
+			if (key !== lastKey) {
+				out.push(row);
+				lastKey = key;
+			}
+		}
+		return out;
+	});
+}
 
 function colorToRgba(color, alpha) {
 	var c = String(color || '').trim();
@@ -519,7 +578,7 @@ function ensureCss() {
 			'id': 'bplus-status-css',
 			'rel': 'stylesheet',
 			'type': 'text/css',
-			'href': L.resource('bandix_plus/status.css', '?v=46')
+			'href': L.resource('bandix_plus/status.css', '?v=50')
 		}));
 	}
 	ensureLayoutCss();
@@ -582,6 +641,7 @@ return view.extend({
 		this.scheduleDayButtonList = [];
 		this.liveReqSeq = 0;
 		this.trendReqSeq = 0;
+		this.statsReqSeq = 0;
 	},
 
 	setThemeClass: function () {
@@ -923,11 +983,31 @@ return view.extend({
 		ui.addNotification(null, E('p', {}, [ txt ]));
 	},
 
-	/** True while schedule hub or nested rule modal is visible — avoids tearing down tbody during poll refresh (lost click / ghost clicks). */
+	setStatsLoadingNotice: function (text) {
+		var n = this.el && this.el.statsLoadingNotice;
+		if (!n) return;
+		var t = String(text || '').trim();
+		if (!t) {
+			n.textContent = '';
+			n.style.display = 'none';
+			return;
+		}
+		n.textContent = t;
+		n.style.display = '';
+	},
+
+		/** True while schedule hub or nested rule modal is visible — avoids tearing down tbody during poll refresh (lost click / ghost clicks). */
 		isScheduleHubUiOpen: function () {
 			return !!(this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.classList.contains('show'))
 				|| !!(this.el.scheduleRuleOverlay && this.el.scheduleRuleOverlay.classList.contains('show'))
 				|| !!(this.el.scheduleDeleteConfirmOverlay && this.el.scheduleDeleteConfirmOverlay.classList.contains('show'));
+		},
+
+		/** True while hovering device rule popover trigger/content; avoids repaint closing the hover popover. */
+		isDeviceRulePopoverHovered: function () {
+			if (!this.el || !this.el.deviceBody || !this.el.deviceBody.querySelector)
+				return false;
+			return !!this.el.deviceBody.querySelector('.bplus-device-rule-stack:hover');
 		},
 
 	findDeviceForScheduleClick: function (macAttr, ifaceAttr) {
@@ -940,6 +1020,134 @@ return view.extend({
 				return d;
 		}
 		return null;
+	},
+
+	todayScheduleDayNumber: function () {
+		var wd = new Date().getDay(); // 0=Sun..6=Sat
+		return wd === 0 ? 7 : wd; // 1=Mon..7=Sun
+	},
+
+	parseScheduleHmToMin: function (hm) {
+		var s = String(hm || '').trim();
+		var m = s.match(/^(\d{1,2}):(\d{2})$/);
+		if (!m) return -1;
+		var h = parseInt(m[1], 10);
+		var mm = parseInt(m[2], 10);
+		if (isNaN(h) || isNaN(mm) || h < 0 || h > 23 || mm < 0 || mm > 59) return -1;
+		return h * 60 + mm;
+	},
+
+	isScheduleRuleActiveNow: function (rule) {
+		var t = rule && rule.time_slot ? rule.time_slot : {};
+		var days = Array.isArray(t.days) ? t.days : [];
+		if (!days.length) return false;
+		var startMin = this.parseScheduleHmToMin(t.start);
+		var endMin = this.parseScheduleHmToMin(t.end);
+		if (startMin < 0 || endMin < 0) return false;
+
+		var daySet = {};
+		for (var i = 0; i < days.length; i++) {
+			var dn = asNum(days[i]);
+			if (dn >= 1 && dn <= 7) daySet[String(dn)] = 1;
+		}
+		var now = new Date();
+		var nowMin = now.getHours() * 60 + now.getMinutes();
+		var today = this.todayScheduleDayNumber();
+		var yday = today === 1 ? 7 : (today - 1);
+
+		// Same start/end means always active on scheduled day.
+		if (startMin === endMin)
+			return !!daySet[String(today)];
+
+		if (startMin < endMin)
+			return !!daySet[String(today)] && nowMin >= startMin && nowMin < endMin;
+
+		// Overnight slot, e.g. 23:00-06:00
+		return (!!daySet[String(today)] && nowMin >= startMin) ||
+			(!!daySet[String(yday)] && nowMin < endMin);
+	},
+
+	deviceScheduleRulesForDevice: function (dev) {
+		var iface = String(deviceIfaceName(dev) || '').trim();
+		var mkey = this.normalizeMacKey(dev && dev.mac);
+		var rules = this.rate && Array.isArray(this.rate.schedules) ? this.rate.schedules : [];
+		var out = [];
+		for (var i = 0; i < rules.length; i++) {
+			var r = rules[i] || {};
+			if (String(r.iface || '').trim() !== iface) continue;
+			if (this.normalizeMacKey(r.mac) !== mkey) continue;
+			out.push(r);
+		}
+		return out;
+	},
+
+	deviceScheduleRuleTimeText: function (rule) {
+		var t = rule && rule.time_slot ? rule.time_slot : {};
+		return (t.start || '--:--') + ' - ' + (t.end || '--:--') + ' · ' + formatScheduleDayLabels(t.days);
+	},
+
+	deviceScheduleRuleSpeedText: function (rule) {
+		var up4 = formatLimitKbpsRate(rule && rule.up_v4_kbps || 0);
+		var down4 = formatLimitKbpsRate(rule && rule.down_v4_kbps || 0);
+		var up6 = formatLimitKbpsRate(rule && rule.up_v6_kbps || 0);
+		var down6 = formatLimitKbpsRate(rule && rule.down_v6_kbps || 0);
+		return 'IPv4 ' + _('Upload') + ' ' + up4 + ' · ' + _('Download') + ' ' + down4 +
+			' | IPv6 ' + _('Upload') + ' ' + up6 + ' · ' + _('Download') + ' ' + down6;
+	},
+
+	deviceScheduleRuleStatus: function (dev) {
+		var rules = this.deviceScheduleRulesForDevice(dev);
+		var count = rules.length;
+		var active = false;
+		for (var i = 0; i < count; i++) {
+			if (this.isScheduleRuleActiveNow(rules[i])) {
+				active = true;
+				break;
+			}
+		}
+		return { count: count, active: active, rules: rules };
+	},
+
+	deviceRowKey: function (dev) {
+		return String(deviceIfaceName(dev) || '') + '|' + this.normalizeMacKey(dev && dev.mac);
+	},
+
+	updateDevicesTableMetricsOnly: function () {
+		var body = this.el && this.el.deviceBody;
+		if (!body || !body.querySelectorAll) return false;
+		var det = this.deviceDisplayMode === 'detailed';
+		var rows = body.querySelectorAll('tr[data-device-row-key]');
+		if (!rows || !rows.length) return false;
+
+		var devByKey = {};
+		for (var i = 0; i < this.devices.length; i++) {
+			var d = this.devices[i];
+			devByKey[this.deviceRowKey(d)] = d;
+		}
+
+		for (var r = 0; r < rows.length; r++) {
+			var tr = rows[r];
+			var key = String(tr.getAttribute('data-device-row-key') || '');
+			var dev = devByKey[key];
+			if (!dev) continue;
+			var tds = tr.querySelectorAll('td');
+			if (!tds || tds.length < 11) continue;
+			var met = dev.metrics || {};
+			var cum = dev.cumulative || {};
+			var upRateTd = deviceTableRateTd(met, true, det);
+			var downRateTd = deviceTableRateTd(met, false, det);
+			var upBytesTd = deviceTableBytesTd(cum, true, det);
+			var downBytesTd = deviceTableBytesTd(cum, false, det);
+			tr.replaceChild(upRateTd, tds[5]);
+			tds = tr.querySelectorAll('td');
+			tr.replaceChild(downRateTd, tds[6]);
+			tds = tr.querySelectorAll('td');
+			tr.replaceChild(upBytesTd, tds[7]);
+			tds = tr.querySelectorAll('td');
+			tr.replaceChild(downBytesTd, tds[8]);
+			tr.className = dev.online ? 'is-online' : 'is-offline';
+		}
+		return true;
 	},
 
 		refreshLive: function (showErr) {
@@ -992,7 +1200,11 @@ return view.extend({
 				this.renderStatsMacOptions();
 				this.renderOverviewGrid();
 			if (!this.isScheduleHubUiOpen()) {
-				this.renderDevicesTable();
+				if (this.isDeviceRulePopoverHovered()) {
+					this.updateDevicesTableMetricsOnly();
+				} else {
+					this.renderDevicesTable();
+				}
 				this.syncRateFormIfaceOptions();
 			}
 			if (this.el.overviewCount) {
@@ -1412,6 +1624,19 @@ return view.extend({
 		var self = this;
 		var head = this.el.deviceHead;
 		var body = this.el.deviceBody;
+		var preserveRuleCells = this.isDeviceRulePopoverHovered();
+		var preservedRuleTdByKey = {};
+		if (preserveRuleCells && body && body.querySelectorAll) {
+			var oldRows = body.querySelectorAll('tr[data-device-row-key]');
+			for (var orx = 0; orx < oldRows.length; orx++) {
+				var oldRow = oldRows[orx];
+				var oldKey = String(oldRow.getAttribute('data-device-row-key') || '');
+				if (!oldKey) continue;
+				var oldTds = oldRow.querySelectorAll('td');
+				if (oldTds && oldTds.length >= 10)
+					preservedRuleTdByKey[oldKey] = oldTds[9];
+			}
+		}
 		dom.content(head, []);
 		dom.content(body, []);
 
@@ -1441,6 +1666,7 @@ return view.extend({
 			sortable(_('Download Rate'), 'rate_down'),
 			sortable(_('Upload bytes'), 'up_bytes'),
 			sortable(_('Download bytes'), 'down_bytes'),
+			E('th', {}, [ _('Limit Rule') ]),
 			E('th', {}, [ _('Actions') ])
 		]);
 		head.appendChild(trh);
@@ -1455,13 +1681,14 @@ return view.extend({
 		}
 
 		if (!list.length) {
-			body.appendChild(E('tr', {}, [ E('td', { 'colspan': '10', 'class': 'bplus-empty' }, [ _('No devices') ]) ]));
+			body.appendChild(E('tr', {}, [ E('td', { 'colspan': '11', 'class': 'bplus-empty' }, [ _('No devices') ]) ]));
 			return;
 		}
 
 		var det = this.deviceDisplayMode === 'detailed';
 		for (var i = 0; i < list.length; i++) {
 			var d = list[i];
+			var rowKey = this.deviceRowKey(d);
 			var cum = d.cumulative || {};
 			var met = d.metrics || {};
 			var hostDisplay = d.hostname === '-' || d.hostname == null || String(d.hostname).trim() === '' ? '' : String(d.hostname);
@@ -1474,7 +1701,32 @@ return view.extend({
 					])
 				])
 				: E('td', { 'class': 'bplus-host' }, [ hostText ]);
-			var tr = E('tr', { 'class': d.online ? 'is-online' : 'is-offline' }, [
+			var ruleTd = (function () {
+				var st = self.deviceScheduleRuleStatus(d);
+				var pillCls = st.count <= 0 ? 'is-none' : (st.active ? 'is-active' : 'is-inactive');
+				var pillTxt = st.count <= 0 ? _('No rule') : (st.active ? _('Active') : _('Inactive'));
+				var header = E('div', { 'class': 'bplus-device-rule-head' }, [
+					E('span', { 'class': 'bplus-device-rule-pill ' + pillCls }, [ pillTxt ]),
+					E('span', { 'class': 'bplus-device-rule-count' }, [ String(st.count) ])
+				]);
+				if (st.count <= 0)
+					return E('td', { 'class': 'bplus-device-rule-cell' }, [ header ]);
+				var details = [];
+				for (var ri = 0; ri < st.rules.length; ri++) {
+					var rule = st.rules[ri];
+					details.push(E('div', { 'class': 'bplus-device-rule-detail' }, [
+						E('div', { 'class': 'bplus-device-rule-time' }, [ self.deviceScheduleRuleTimeText(rule) ]),
+						E('div', { 'class': 'bplus-device-rule-speed' }, [ self.deviceScheduleRuleSpeedText(rule) ])
+					]));
+				}
+				var pop = E('div', { 'class': 'bplus-device-rule-popover' }, details);
+				return E('td', { 'class': 'bplus-device-rule-cell' }, [
+					E('div', { 'class': 'bplus-device-rule-stack' }, [ header, pop ])
+				]);
+			})();
+			if (preserveRuleCells && preservedRuleTdByKey[rowKey])
+				ruleTd = preservedRuleTdByKey[rowKey];
+			var tr = E('tr', { 'class': d.online ? 'is-online' : 'is-offline', 'data-device-row-key': rowKey }, [
 				E('td', {}, [ deviceIfaceName(d) || '—' ]),
 				hostTd,
 				E('td', { 'class': 'bplus-mono' }, [ d.mac || '—' ]),
@@ -1484,6 +1736,7 @@ return view.extend({
 				deviceTableRateTd(met, false, det),
 				deviceTableBytesTd(cum, true, det),
 				deviceTableBytesTd(cum, false, det),
+				ruleTd,
 				E('td', { 'class': 'bplus-device-actions' }, [
 					E('button', {
 						'type': 'button',
@@ -2882,26 +3135,42 @@ return view.extend({
 		}
 
 		this.setBusy(this.el.statsQuery, true);
+		var reqSeq = ++this.statsReqSeq;
 
 		var macF = this.el.statsMacSelect ? (this.el.statsMacSelect.value || '').trim() : '';
 		var tt = this.el.statsTrafficTypeSelect ? (this.el.statsTrafficTypeSelect.value || 'all') : 'all';
 		if (tt === 'all') tt = '';
+		var chunks = buildStatsHistogramChunks(start, end, bucket);
+		if (chunks && chunks.length > 1)
+			this.setStatsLoadingNotice(_('Loading in chunks, please wait... (%d/%d)').format(0, chunks.length));
+		else
+			this.setStatsLoadingNotice(_('Loading...'));
 
-		callGetHistogram(iface, macF, tt || 'all', String(start), String(end), bucket)
-			.then(function (r) { return unwrapData(r, []); })
+		fetchStatsHistogramChunked(iface, macF, tt || 'all', start, end, bucket, L.bind(function (done, total) {
+			if (reqSeq !== this.statsReqSeq) return;
+			if (total <= 1) return;
+			this.setStatsLoadingNotice(_('Loading in chunks, please wait... (%d/%d)').format(done, total));
+		}, this))
 			.then(L.bind(function (res) {
+				if (reqSeq !== this.statsReqSeq) return;
 				this.histogram = res || [];
 				this.drawStatsChart();
 				this.updateStatsHistogramSummary();
 				this.updateStatsHistogramTimeline();
+				this.setStatsLoadingNotice('');
 			}, this))
 			.catch(L.bind(function (e) {
+				if (reqSeq !== this.statsReqSeq) return;
 				this.notifyError(_('Failed to query statistics'), e);
+				this.setStatsLoadingNotice('');
 			}, this))
 			.then(L.bind(function () {
+				if (reqSeq !== this.statsReqSeq) return;
 				this.setBusy(this.el.statsQuery, false);
 			}, this), L.bind(function () {
+				if (reqSeq !== this.statsReqSeq) return;
 				this.setBusy(this.el.statsQuery, false);
+				this.setStatsLoadingNotice('');
 			}, this));
 	},
 
@@ -3788,6 +4057,7 @@ return view.extend({
 		this.el.statsStart.value = formatDateInput(from30);
 		this.el.statsEnd.value = formatDateInput(todayCal);
 		this.el.trendTypeSelect.value = this.selectedTrendType;
+		this.el.statsLoadingNotice = E('div', { 'class': 'bplus-stats-loading-notice', 'style': 'display:none' }, []);
 
 		this.root = E('div', { 'class': 'bplus-page' }, [
 			E('div', { 'class': 'bplus-main' }, [
@@ -3942,6 +4212,7 @@ return view.extend({
 							this.el.statsMacSelect
 						])
 					]),
+					this.el.statsLoadingNotice,
 					E('div', { 'class': 'bplus-chart-wrap' }, [ this.el.statsCanvas, this.el.statsTooltip ]),
 					this.el.statsLegend,
 					this.el.statsSummary

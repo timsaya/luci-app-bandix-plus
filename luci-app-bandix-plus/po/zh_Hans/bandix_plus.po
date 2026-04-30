@@ -287,3 +287,24 @@ msgstr "添加规则"
 
 msgid "Select MAC"
 msgstr "选择设备"
+
+msgid "Limit Rule"
+msgstr "限速规则"
+
+msgid "No rule"
+msgstr "无规则"
+
+msgid "Active"
+msgstr "生效中"
+
+msgid "Inactive"
+msgstr "未生效"
+
+msgid "Update schedule"
+msgstr "更新规则"
+
+msgid "Loading..."
+msgstr "加载中..."
+
+msgid "Loading in chunks, please wait... (%d/%d)"
+msgstr "分段加载中，请稍候...（%d/%d）"
