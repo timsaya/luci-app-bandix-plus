@@ -74,10 +74,10 @@
   /* 流量色：主色=方向；v4=同向偏沉；v6=同向偏淡（与 luci-app-bandix 橙/青一致，细分为一档明暗） */
   --bplus-up: #f97316;
   --bplus-down: #06b6d4;
-  --bplus-up-v4: #c2410c;
-  --bplus-up-v6: #fdba74;
-  --bplus-down-v4: #155e75;
-  --bplus-down-v6: #5eead4;
+  --bplus-up-v4: #f97316;
+  --bplus-up-v6: #f97316;
+  --bplus-down-v4: #06b6d4;
+  --bplus-down-v6: #06b6d4;
   color: var(--bplus-text);
   font-size: 16px;
   /* LuCI 内容区常为 flex 子项，不设 min-width:0 时子树 intrinsic 宽度会撑破视口 */
@@ -94,12 +94,12 @@
   --bplus-sub: #b4c0ce;
   --bplus-border: #334155;
   --bplus-accent: #38bdf8;
-  --bplus-up: #fb923c;
-  --bplus-down: #2dd4bf;
+  --bplus-up: #f97316;
+  --bplus-down: #06b6d4;
   --bplus-up-v4: #f97316;
-  --bplus-up-v6: #fde68a;
+  --bplus-up-v6: #f97316;
   --bplus-down-v4: #06b6d4;
-  --bplus-down-v6: #ccfbf1;
+  --bplus-down-v6: #06b6d4;
 }
 
 /* LuCI / Argon 等主题会给 h2[name=content] 或区块标题加左侧色条，在此页内关闭 */
@@ -906,6 +906,29 @@
   justify-content: flex-end;
 }
 
+.bplus-page .overview-card__actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.bplus-page .bplus-overview-limit-btn {
+  margin: 0;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .bplus-page .overview-pill {
   display: inline-flex;
   align-items: center;
@@ -924,6 +947,38 @@
 .bplus-page .overview-card__block {
   display: grid;
   gap: 8px;
+}
+
+.bplus-page .overview-card__block--limit {
+  border-top: 1px dashed var(--bplus-border);
+  padding-top: 8px;
+}
+
+.bplus-page .overview-limit-head {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--bplus-sub);
+  letter-spacing: 0.01em;
+}
+
+.bplus-page .overview-limit-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.bplus-page .overview-limit-k {
+  color: var(--bplus-sub);
+  flex-shrink: 0;
+}
+
+.bplus-page .overview-limit-v {
+  text-align: right;
+  font-weight: 600;
+  word-break: break-word;
 }
 
 .bplus-page .overview-hero-pair {
@@ -1831,6 +1886,10 @@
   width: min(720px, calc(100vw - 32px));
 }
 
+.bplus-modal-panel.bplus-modal-panel--iface-limit {
+  width: min(520px, calc(100vw - 32px));
+}
+
 .bplus-modal-header {
   display: flex;
   align-items: center;
@@ -1948,6 +2007,11 @@
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+.bplus-iface-limit-form .cbi-input-text[readonly] {
+  opacity: 0.85;
+  cursor: default;
 }
 
 .bplus-form-hint {
