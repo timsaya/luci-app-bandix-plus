@@ -5,7 +5,7 @@
 bplus_base() {
 	local p
 	p="$(uci -q get bandix_plus.general.port)"
-	[ -z "$p" ] && p="9911"
+	[ -z "$p" ] && p="8787"
 	printf 'http://127.0.0.1:%s' "$p"
 }
 

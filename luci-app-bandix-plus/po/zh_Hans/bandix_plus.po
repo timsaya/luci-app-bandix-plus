@@ -41,8 +41,8 @@ msgstr "L4 方向合计速率（v4/v6 双向）"
 msgid "Cumulative: all (live)"
 msgstr "累计：全部（实时）"
 
-msgid "HTTP API 端口与 bandix-plus --api-bind 的端口段一致，默认 9911。"
-msgstr "本页端口须与 bandix-plus 的 --api-bind 端口一致，默认可填 9911。"
+msgid "HTTP API 端口与 bandix-plus --api-bind 的端口段一致，默认 8787。"
+msgstr "本页端口须与 bandix-plus 的 --api-bind 端口一致，默认可填 8787。"
 
 msgid "General"
 msgstr "基本"
