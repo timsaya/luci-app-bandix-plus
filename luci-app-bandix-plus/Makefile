@@ -5,8 +5,8 @@ include $(TOPDIR)/rules.mk
 
 PKG_LICENSE:=Apache-2.0
 
-LUCI_TITLE:=LuCI Bandix Plus (bandix-plus API)
-LUCI_DEPENDS:=+luci-base +luci-lib-jsonc +curl
+LUCI_TITLE:=LuCI Bandix Plus app for network traffic monitoring
+LUCI_DEPENDS:=+luci-base +luci-lib-jsonc +curl +bandix-plus
 
 PKG_MAINTAINER:=timsaya
 
