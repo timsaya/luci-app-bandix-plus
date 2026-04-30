@@ -277,6 +277,10 @@ function msToTimeLabel(tsMs) {
 		d.getSeconds().toString().padStart(2, '0');
 }
 
+function formatEntriesPillText(n) {
+	return String(Math.max(0, asNum(n))) + ' ' + _('entries');
+}
+
 function formatScheduleDayLabels(days) {
 	if (!days || !days.length) return '—';
 	var labels = [ '', _('Mon'), _('Tue'), _('Wed'), _('Thu'), _('Fri'), _('Sat'), _('Sun') ];
@@ -460,6 +464,26 @@ return view.extend({
 		timelineRange.style.width = widthPercent + '%';
 	},
 
+	updateRankTimeline: function () {
+		var timeline = this.el.rankTimeline;
+		var timelineRange = this.el.rankTimelineRange;
+		var startStr = this.el.rankStart.value;
+		var endStr = this.el.rankEnd.value;
+		if (!timeline || !timelineRange || !startStr || !endStr) return;
+		var today = new Date();
+		today.setHours(0, 0, 0, 0);
+		var todayMs = today.getTime();
+		var startMs = new Date(startStr + 'T00:00:00').getTime();
+		var endMs = new Date(endStr + 'T23:59:59').getTime();
+		var oneYearAgoMs = todayMs - 365 * 24 * 60 * 60 * 1000;
+		var totalRange = todayMs - oneYearAgoMs;
+		var selectedRange = endMs - startMs;
+		var leftPercent = Math.max(0, ((startMs - oneYearAgoMs) / totalRange) * 100);
+		var widthPercent = Math.min(100, (selectedRange / totalRange) * 100);
+		timelineRange.style.left = leftPercent + '%';
+		timelineRange.style.width = widthPercent + '%';
+	},
+
 	renderUsageRanking: function () {
 		var list = Array.isArray(this.usageRanking) ? this.usageRanking : [];
 		var wrap = this.el.rankWrap;
@@ -467,9 +491,27 @@ return view.extend({
 		dom.content(wrap, []);
 
 		if (this.el.rankTimerange) {
-			var start = dateStartMs(this.el.statsStart.value);
-			var end = dateEndMs(this.el.statsEnd.value);
-			this.el.rankTimerange.textContent = (start != null && end != null) ? formatSlashDateTimeRange(start, end) : '';
+			var start = dateStartMs(this.el.rankStart.value);
+			var end = dateEndMs(this.el.rankEnd.value);
+			if (start != null && end != null) {
+				var up = 0;
+				var down = 0;
+				var total = 0;
+				for (var si = 0; si < list.length; si++) {
+					var row = list[si] || {};
+					up += asNum(row.up_bytes);
+					down += asNum(row.down_bytes);
+					total += asNum(row.total_bytes);
+				}
+				this.el.rankTimerange.textContent =
+					formatSlashDateTimeRange(start, end) +
+					' · ↑' + formatBytes(up) +
+					' · ↓' + formatBytes(down) +
+					' · ' + formatBytes(total);
+			}
+			else {
+				this.el.rankTimerange.textContent = '';
+			}
 		}
 
 		if (!list.length) {
@@ -579,6 +621,11 @@ return view.extend({
 	queryStatsIfIfaceSelected: function () {
 		if (!this.el.statsIface || !this.el.statsIface.value) return;
 		this.queryStats();
+	},
+
+	queryUsageRankingIfIfaceSelected: function () {
+		if (!this.el.rankIface || !this.el.rankIface.value) return;
+		this.queryUsageRanking();
 	},
 
 	setBusy: function (btn, busy) {
@@ -699,7 +746,7 @@ return view.extend({
 			this.trend = [];
 			this.trendRaw = [];
 			this.drawTrendChart();
-			if (this.el.trendCount) this.el.trendCount.textContent = '0 ' + _('entries');
+			if (this.el.trendCount) this.el.trendCount.textContent = formatEntriesPillText(0);
 			return Promise.resolve();
 		}
 		if (this.trendChartPauseRefresh)
@@ -723,14 +770,14 @@ return view.extend({
 					this.chartHoverIndex = null;
 				}
 				if (this.el.trendCount) {
-					this.el.trendCount.textContent = String(this.trend.length) + ' ' + _('entries');
+					this.el.trendCount.textContent = formatEntriesPillText(this.trend.length);
 				}
 				this.drawTrendChart();
 			}, this)).catch(L.bind(function (e) {
 			this.trend = [];
 			this.trendRaw = [];
 			this.drawTrendChart();
-			if (this.el.trendCount) this.el.trendCount.textContent = '0 ' + _('entries');
+			if (this.el.trendCount) this.el.trendCount.textContent = formatEntriesPillText(0);
 			if (showErr) this.notifyError(_('Failed to refresh trend'), e);
 		}, this));
 	},
@@ -2087,22 +2134,15 @@ return view.extend({
 		var macF = this.el.statsMacSelect ? (this.el.statsMacSelect.value || '').trim() : '';
 		var tt = this.el.statsTrafficTypeSelect ? (this.el.statsTrafficTypeSelect.value || 'all') : 'all';
 		if (tt === 'all') tt = '';
-		var rankIface = this.el.rankIface ? (this.el.rankIface.value || '').trim() : '';
-		if (!rankIface) rankIface = iface;
 
-		Promise.all([
-			callGetHistogram(iface, macF, tt || 'all', String(start), String(end), bucket)
-				.then(function (r) { return unwrapData(r, []); }),
-			callGetUsageRanking(rankIface, tt || 'all', String(start), String(end), '50')
-				.then(function (r) { return unwrapData(r, []); })
-		]).then(L.bind(function (res) {
-			this.histogram = res[0] || [];
-			this.usageRanking = res[1] || [];
-			this.drawStatsChart();
-			this.updateStatsHistogramSummary();
-			this.updateStatsHistogramTimeline();
-			this.renderUsageRanking();
-		}, this))
+		callGetHistogram(iface, macF, tt || 'all', String(start), String(end), bucket)
+			.then(function (r) { return unwrapData(r, []); })
+			.then(L.bind(function (res) {
+				this.histogram = res || [];
+				this.drawStatsChart();
+				this.updateStatsHistogramSummary();
+				this.updateStatsHistogramTimeline();
+			}, this))
 			.catch(L.bind(function (e) {
 				this.notifyError(_('Failed to query statistics'), e);
 			}, this))
@@ -2111,6 +2151,117 @@ return view.extend({
 			}, this), L.bind(function () {
 				this.setBusy(this.el.statsQuery, false);
 			}, this));
+	},
+
+	queryUsageRanking: function () {
+		var iface = this.el.rankIface.value;
+		var start = dateStartMs(this.el.rankStart.value);
+		var end = dateEndMs(this.el.rankEnd.value);
+		if (!iface) {
+			this.notifyError(_('Please choose an interface'), null);
+			return;
+		}
+		if (start == null || end == null || end < start) {
+			this.notifyError(_('Invalid date range'), null);
+			return;
+		}
+		this.setBusy(this.el.rankQuery, true);
+		var rankTt = this.el.rankTrafficTypeSelect ? (this.el.rankTrafficTypeSelect.value || 'all') : 'all';
+		if (rankTt === 'all') rankTt = '';
+
+		callGetUsageRanking(iface, rankTt || 'all', String(start), String(end), '0')
+			.then(function (r) { return unwrapData(r, []); })
+			.then(L.bind(function (res) {
+				this.usageRanking = res || [];
+				this.renderUsageRanking();
+				this.updateRankTimeline();
+			}, this))
+			.catch(L.bind(function (e) {
+				this.notifyError(_('Failed to query usage ranking'), e);
+			}, this))
+			.then(L.bind(function () {
+				this.setBusy(this.el.rankQuery, false);
+			}, this), L.bind(function () {
+				this.setBusy(this.el.rankQuery, false);
+			}, this));
+	},
+
+	applyRankPreset: function (kind, runQuery) {
+		var now = new Date();
+		var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		var todayMs = today.getTime();
+		var start, end;
+
+		switch (kind) {
+		case 'today':
+			start = new Date(today);
+			end = new Date(today);
+			break;
+		case 'thisweek':
+			var dayOfWeek = now.getDay();
+			var mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+			start = new Date(todayMs + mondayOffset * 86400000);
+			start.setHours(0, 0, 0, 0);
+			end = new Date(today);
+			break;
+		case 'lastweek':
+			var lastWeekDayOfWeek = now.getDay();
+			var lastWeekMondayOffset = lastWeekDayOfWeek === 0 ? -13 : -6 - lastWeekDayOfWeek;
+			start = new Date(todayMs + lastWeekMondayOffset * 86400000);
+			start.setHours(0, 0, 0, 0);
+			end = new Date(start);
+			end.setDate(end.getDate() + 6);
+			break;
+		case 'thismonth':
+			start = new Date(now.getFullYear(), now.getMonth(), 1);
+			end = new Date(today);
+			break;
+		case 'lastmonth':
+			var lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+			start = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
+			end = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0);
+			break;
+		case '7days':
+			start = new Date(todayMs - 6 * 86400000);
+			end = new Date(today);
+			break;
+		case '30days':
+			start = new Date(todayMs - 29 * 86400000);
+			end = new Date(today);
+			break;
+		case '90days':
+			start = new Date(todayMs - 89 * 86400000);
+			end = new Date(today);
+			break;
+		case '1year':
+			start = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+			end = new Date(today);
+			break;
+		default:
+			return;
+		}
+
+		this.el.rankStart.value = formatDateInput(start);
+		this.el.rankEnd.value = formatDateInput(end);
+
+		var presetPairs = [
+			['today', this.el.rankPresetToday],
+			['thisweek', this.el.rankPresetThisWeek],
+			['lastweek', this.el.rankPresetLastWeek],
+			['thismonth', this.el.rankPresetThisMonth],
+			['lastmonth', this.el.rankPresetLastMonth],
+			['7days', this.el.rankPreset7Days],
+			['30days', this.el.rankPreset30Days],
+			['90days', this.el.rankPreset90Days],
+			['1year', this.el.rankPreset1Year]
+		];
+		for (var pi = 0; pi < presetPairs.length; pi++) {
+			var active = presetPairs[pi][0] === kind;
+			presetPairs[pi][1].className = 'cbi-button cbi-button-' + (active ? 'positive' : 'neutral');
+		}
+		this.updateRankTimeline();
+		if (runQuery)
+			this.queryUsageRanking();
 	},
 
 	applyStatsPreset: function (kind, runQuery) {
@@ -2246,8 +2397,11 @@ return view.extend({
 
 		if (this.el.rankIface) {
 			this.el.rankIface.addEventListener('change', L.bind(function () {
-				this.queryStatsIfIfaceSelected();
+				this.queryUsageRankingIfIfaceSelected();
 			}, this));
+		}
+		if (this.el.rankTrafficTypeSelect) {
+			this.el.rankTrafficTypeSelect.addEventListener('change', L.bind(this.queryUsageRankingIfIfaceSelected, this));
 		}
 		if (this.el.statsTrafficTypeSelect) {
 			this.el.statsTrafficTypeSelect.addEventListener('change', L.bind(this.queryStatsIfIfaceSelected, this));
@@ -2318,6 +2472,29 @@ return view.extend({
 			});
 		});
 
+		this.el.rankQuery.addEventListener('click', L.bind(this.queryUsageRanking, this));
+		this.el.rankReset.addEventListener('click', L.bind(function () {
+			this.applyRankPreset('1year', true);
+		}, this));
+		this.el.rankStart.addEventListener('change', L.bind(this.updateRankTimeline, this));
+		this.el.rankEnd.addEventListener('change', L.bind(this.updateRankTimeline, this));
+		[
+			['today', this.el.rankPresetToday],
+			['thisweek', this.el.rankPresetThisWeek],
+			['lastweek', this.el.rankPresetLastWeek],
+			['thismonth', this.el.rankPresetThisMonth],
+			['lastmonth', this.el.rankPresetLastMonth],
+			['7days', this.el.rankPreset7Days],
+			['30days', this.el.rankPreset30Days],
+			['90days', this.el.rankPreset90Days],
+			['1year', this.el.rankPreset1Year]
+		].forEach(function (row) {
+			var presetKind = row[0];
+			row[1].addEventListener('click', function () {
+				self.applyRankPreset(presetKind, true);
+			});
+		});
+
 		this.el.statsCanvas.addEventListener('mousemove', L.bind(this.handleStatsMove, this));
 		this.el.statsCanvas.addEventListener('mouseleave', L.bind(this.handleStatsLeave, this));
 	},
@@ -2351,7 +2528,7 @@ return view.extend({
 		this.el.deviceModeSelect.value = this.deviceDisplayMode;
 		this.el.devicesCount = E('span', { 'class': 'meta-pill', 'id': 'bplus-devices-count' }, [ _('Online devices') + ': 0 / 0' ]);
 
-		this.el.trendCount = E('span', { 'class': 'meta-pill', 'id': 'bplus-trend-count' }, [ '0 ' + _('entries') ]);
+		this.el.trendCount = E('span', { 'class': 'meta-pill', 'id': 'bplus-trend-count' }, [ formatEntriesPillText(0) ]);
 
 		this.el.trendCanvas = E('canvas', { 'class': 'bplus-chart-canvas' });
 		this.el.trendTooltip = E('div', { 'class': 'bplus-tooltip history-tooltip' });
@@ -2359,6 +2536,27 @@ return view.extend({
 		this.el.deviceBody = E('tbody');
 
 		this.el.rankIface = E('select', { 'class': 'cbi-input-select', 'id': 'bplus-rank-iface' });
+		this.el.rankTrafficTypeSelect = E('select', { 'class': 'cbi-input-select', 'id': 'bplus-rank-tt' }, [
+			E('option', { 'value': 'all' }, [ _('All') ]),
+			E('option', { 'value': 'ipv4' }, [ 'IPv4' ]),
+			E('option', { 'value': 'ipv6' }, [ 'IPv6' ])
+		]);
+		this.el.rankStart = E('input', { 'class': 'cbi-input-text cbi-input-date', 'type': 'date', 'id': 'bplus-rank-start' });
+		this.el.rankEnd = E('input', { 'class': 'cbi-input-text cbi-input-date', 'type': 'date', 'id': 'bplus-rank-end' });
+		this.el.rankQuery = E('button', { 'class': 'cbi-button cbi-button-action usage-ranking-query-btn', 'type': 'button', 'id': 'bplus-rank-query' }, [ E('span', {}, [ _('Query') ]) ]);
+		this.el.rankReset = E('button', { 'class': 'cbi-button cbi-button-reset', 'type': 'button', 'id': 'bplus-rank-reset' }, [ _('Reset') ]);
+		this.el.rankPresetToday = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': 'today' }, [ _('Today') ]);
+		this.el.rankPresetThisWeek = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': 'thisweek' }, [ _('This Week') ]);
+		this.el.rankPresetLastWeek = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': 'lastweek' }, [ _('Last Week') ]);
+		this.el.rankPresetThisMonth = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': 'thismonth' }, [ _('This Month') ]);
+		this.el.rankPresetLastMonth = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': 'lastmonth' }, [ _('Last Month') ]);
+		this.el.rankPreset7Days = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': '7days' }, [ _('Last 7 Days') ]);
+		this.el.rankPreset30Days = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': '30days' }, [ _('Last 30 Days') ]);
+		this.el.rankPreset90Days = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': '90days' }, [ _('Last 90 Days') ]);
+		this.el.rankPreset1Year = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': '1year' }, [ _('Last Year') ]);
+		this.el.rankTimeline = E('div', { 'class': 'usage-ranking-timeline', 'id': 'bplus-rank-timeline' }, [
+			this.el.rankTimelineRange = E('div', { 'class': 'usage-ranking-timeline-range', 'id': 'bplus-rank-timeline-range' })
+		]);
 		this.el.rankWrap = E('div', { 'id': 'bplus-usage-ranking-container' }, [
 			E('div', { 'class': 'loading-state' }, [ _('Loading...') ])
 		]);
@@ -2627,6 +2825,8 @@ return view.extend({
 		var nowWall = new Date();
 		var todayCal = new Date(nowWall.getFullYear(), nowWall.getMonth(), nowWall.getDate());
 		var from30 = new Date(todayCal.getTime() - 29 * 86400000);
+		this.el.rankStart.value = formatDateInput(from30);
+		this.el.rankEnd.value = formatDateInput(todayCal);
 		this.el.statsStart.value = formatDateInput(from30);
 		this.el.statsEnd.value = formatDateInput(todayCal);
 		this.el.trendTypeSelect.value = this.selectedTrendType;
@@ -2683,23 +2883,68 @@ return view.extend({
 
 				E('section', { 'class': 'bplus-panel bplus-usage-ranking-section' }, [
 					E('div', { 'class': 'usage-ranking-header' }, [
-						E('h4', { 'class': 'usage-ranking-title' }, [ E('span', {}, [ _('Device Usage Ranking') ]) ]),
-						E('div', { 'class': 'usage-ranking-network-type-wrapper' }, [
-							E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-rank-iface' }, [ _('Iface') ]),
-							this.el.rankIface
+						E('div', { 'class': 'bplus-panel-head', 'style': 'margin:0;flex:1;min-width:0' }, [
+							E('h2', {}, [ _('Device Usage Ranking') ])
 						]),
 						this.el.rankTimerange
+					]),
+					E('div', { 'class': 'traffic-increments-query' }, [
+						E('div', { 'class': 'usage-ranking-date-range-row' }, [
+							E('div', { 'class': 'usage-ranking-network-type-wrapper' }, [
+								E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-rank-iface' }, [ _('Iface') ]),
+								this.el.rankIface
+							]),
+							E('div', { 'class': 'usage-ranking-network-type-wrapper' }, [
+								E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-rank-tt' }, [ _('Traffic type') ]),
+								this.el.rankTrafficTypeSelect
+							]),
+							E('div', { 'class': 'usage-ranking-date-picker-wrapper' }, [
+								E('label', { 'class': 'usage-ranking-date-label', 'for': 'bplus-rank-start' }, [ _('Start Date') ]),
+								E('div', { 'class': 'usage-ranking-date-picker' }, [ this.el.rankStart ])
+							]),
+							E('span', { 'class': 'usage-ranking-date-separator' }, '→'),
+							E('div', { 'class': 'usage-ranking-date-picker-wrapper' }, [
+								E('label', { 'class': 'usage-ranking-date-label', 'for': 'bplus-rank-end' }, [ _('End Date') ]),
+								E('div', { 'class': 'usage-ranking-date-picker' }, [ this.el.rankEnd ])
+							]),
+							E('div', { 'class': 'usage-ranking-query-actions' }, [
+								this.el.rankQuery,
+								this.el.rankReset
+							])
+						]),
+						E('div', { 'class': 'usage-ranking-query-presets' }, [
+							this.el.rankPresetToday,
+							this.el.rankPresetThisWeek,
+							this.el.rankPresetLastWeek,
+							this.el.rankPresetThisMonth,
+							this.el.rankPresetLastMonth,
+							this.el.rankPreset7Days,
+							this.el.rankPreset30Days,
+							this.el.rankPreset90Days,
+							this.el.rankPreset1Year
+						]),
+						this.el.rankTimeline
 					]),
 					this.el.rankWrap
 				]),
 
 				E('section', { 'class': 'bplus-panel bplus-histogram-section' }, [
 					E('div', { 'class': 'usage-ranking-header' }, [
-						E('h4', { 'class': 'usage-ranking-title' }, [ E('span', {}, [ _('流量时间线') ]) ]),
+						E('div', { 'class': 'bplus-panel-head', 'style': 'margin:0;flex:1;min-width:0' }, [
+							E('h2', {}, [ _('流量时间线') ])
+						]),
 						this.el.statsHistogramTimerange
 					]),
 					E('div', { 'class': 'traffic-increments-query' }, [
 						E('div', { 'class': 'usage-ranking-date-range-row' }, [
+							E('div', { 'class': 'usage-ranking-network-type-wrapper' }, [
+								E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-stats-iface' }, [ _('Iface') ]),
+								this.el.statsIface
+							]),
+							E('div', { 'class': 'usage-ranking-network-type-wrapper' }, [
+								E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-stats-tt' }, [ _('Traffic type') ]),
+								this.el.statsTrafficTypeSelect
+							]),
 							E('div', { 'class': 'usage-ranking-date-picker-wrapper' }, [
 								E('label', { 'class': 'usage-ranking-date-label', 'for': 'bplus-stats-start' }, [ _('Start Date') ]),
 								E('div', { 'class': 'usage-ranking-date-picker' }, [ this.el.statsStart ])
@@ -2708,14 +2953,6 @@ return view.extend({
 							E('div', { 'class': 'usage-ranking-date-picker-wrapper' }, [
 								E('label', { 'class': 'usage-ranking-date-label', 'for': 'bplus-stats-end' }, [ _('End Date') ]),
 								E('div', { 'class': 'usage-ranking-date-picker' }, [ this.el.statsEnd ])
-							]),
-							E('div', { 'class': 'usage-ranking-network-type-wrapper' }, [
-								E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-stats-iface' }, [ _('Iface') ]),
-								this.el.statsIface
-							]),
-							E('div', { 'class': 'usage-ranking-network-type-wrapper' }, [
-								E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-stats-tt' }, [ _('Traffic type') ]),
-								this.el.statsTrafficTypeSelect
 							]),
 							E('div', { 'class': 'usage-ranking-query-actions' }, [
 								this.el.statsQuery,
@@ -2811,13 +3048,17 @@ return view.extend({
 		this.bindEvents();
 
 		var cap = formatDateInput(new Date());
+		this.el.rankStart.setAttribute('max', cap);
+		this.el.rankEnd.setAttribute('max', cap);
 		this.el.statsStart.setAttribute('max', cap);
 		this.el.statsEnd.setAttribute('max', cap);
 
 		this.refreshLive(false).then(L.bind(function () {
 			if (this.el.statsIface && this.el.statsIface.value) this.queryStats();
+			if (this.el.rankIface && this.el.rankIface.value) this.queryUsageRanking();
 		}, this));
 		this.refreshRateData(false);
+		this.applyRankPreset('30days');
 		this.applyStatsPreset('30days');
 
 		poll.add(L.bind(function () {
