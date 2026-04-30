@@ -9,6 +9,8 @@ English | [简体中文](README.zh.md)
 
 **The `bandix-plus` core is not open source.**
 
+**提示 `bandix-plus` 核心未开源。**
+
 ## Overview
 
 LuCI Bandix Plus is a LuCI frontend for `bandix-plus`, designed for OpenWrt traffic monitoring and rate control.

@@ -30,17 +30,51 @@ return view.extend({
 			uci.add('bandix_plus', 'bandix_plus', 'general');
 		}
 
-		m = new form.Map('bandix_plus', _('Bandix Plus'), _('HTTP API 端口与 bandix-plus --api-bind 的端口段一致，默认 9911。'));
+		m = new form.Map('bandix_plus', _('Bandix Plus'), _('Runtime options for openwrt-bandix-plus service.'));
 		m.versionInfo = vinfo;
 
 		s = m.section(form.NamedSection, 'general', 'bandix_plus', _('General'));
 		s.addremove = false;
-		s.description = _('This LuCI only proxies JSON to 127.0.0.1:<port> (see also bandix_plus/src/api.rs).');
+		s.description = _('This page edits /etc/config/bandix-plus general options. Traffic collection is always enabled by init script.');
 
-		o = s.option(form.Value, 'port', _('Port'), _('Listener port of bandix-plus JSON API (integer only).'));
-		o.datatype = 'port';
-		o.placeholder = '9911';
-		o.default = '9911';
+		o = s.option(form.Flag, 'enabled', _('Enabled'), _('Start bandix-plus service on boot.'));
+		o.default = '1';
+		o.rmempty = false;
+
+		o = s.option(form.DynamicList, 'iface', _('Interfaces'), _('Interfaces to monitor, can specify multiple.'));
+		o.placeholder = 'br-lan';
+		o.rmempty = false;
+
+		o = s.option(form.ListValue, 'log_level', _('Log level'));
+		o.value('trace', 'trace');
+		o.value('debug', 'debug');
+		o.value('info', 'info');
+		o.value('warn', 'warn');
+		o.value('error', 'error');
+		o.default = 'info';
+		o.rmempty = false;
+
+		o = s.option(form.ListValue, 'tc_order', _('TC order'));
+		o.value('first', 'first');
+		o.value('default', 'default');
+		o.value('last', 'last');
+		o.default = 'first';
+		o.rmempty = false;
+
+		o = s.option(form.Value, 'history_window_minutes', _('History window (minutes)'));
+		o.datatype = 'uinteger';
+		o.placeholder = '10';
+		o.default = '10';
+		o.rmempty = false;
+
+		o = s.option(form.Value, 'api_bind', _('API bind'), _('Example: 127.0.0.1:8787'));
+		o.placeholder = '127.0.0.1:8787';
+		o.default = '127.0.0.1:8787';
+		o.rmempty = false;
+
+		o = s.option(form.Value, 'data_dir', _('Data directory'));
+		o.placeholder = '/usr/share/bandix-plus';
+		o.default = '/usr/share/bandix-plus';
 		o.rmempty = false;
 
 		o = s.option(form.DummyValue, 'ver', _('Info'));

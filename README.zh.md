@@ -7,7 +7,9 @@
 
 ## 重要提示
 
-**`bandix-plus` 核心未开源。**
+**The `bandix-plus` core is not open source.**
+
+**提示 `bandix-plus` 核心未开源。**
 
 ## 简介
 
