@@ -1,0 +1,12 @@
+{
+	"bandix_plus": {
+		"title": "Bandix Plus",
+		"description": "eBPF network traffic monitor (bandix-plus API)",
+		"instances": {
+			"instance": {
+				"type": "process",
+				"init": "bandix-plus"
+			}
+		}
+	}
+}

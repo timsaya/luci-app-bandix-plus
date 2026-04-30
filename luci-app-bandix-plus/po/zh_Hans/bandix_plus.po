@@ -1,0 +1,310 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "bandix-plus"
+msgstr "bandix-plus"
+
+msgid "Bandix Plus"
+msgstr "Bandix Plus"
+
+msgid "Rate limit & policy"
+msgstr "限速与策略"
+
+msgid "Cumulative: all (live only)"
+msgstr "累计：全部（仅当前速率与实时累积）"
+
+msgid "Cumulative: today"
+msgstr "累计：本日"
+
+msgid "Cumulative: this week"
+msgstr "累计：本周"
+
+msgid "Cumulative: this month"
+msgstr "累计：本月"
+
+msgid "Cumulative: this year"
+msgstr "累计：本年"
+
+msgid "Name / zone"
+msgstr "网卡 / 域"
+
+msgid "Refresh now"
+msgstr "立即刷新"
+
+msgid "Cumulative (bytes) for period"
+msgstr "所选时间段的累计字节"
+
+msgid "L4 bps (sum v4/v6, both dirs)"
+msgstr "L4 方向合计速率（v4/v6 双向）"
+
+msgid "Cumulative: all (live)"
+msgstr "累计：全部（实时）"
+
+msgid "HTTP API 端口与 bandix-plus --api-bind 的端口段一致，默认 9911。"
+msgstr "本页端口须与 bandix-plus 的 --api-bind 端口一致，默认可填 9911。"
+
+msgid "General"
+msgstr "基本"
+
+msgid "Port"
+msgstr "端口"
+
+msgid "Info"
+msgstr "信息"
+
+msgid "add schedule"
+msgstr "添加计划"
+
+msgid "set"
+msgstr "应用"
+
+msgid "set default"
+msgstr "设访客默认"
+
+msgid "add to whitelist"
+msgstr "加入白名单"
+
+msgid "Online Devices"
+msgstr "在线设备"
+
+msgid "Online devices"
+msgstr "在线设备"
+
+msgid "Upload Rate"
+msgstr "上行速率"
+
+msgid "Download Rate"
+msgstr "下行速率"
+
+msgid "Upload bytes"
+msgstr "上行字节"
+
+msgid "Download bytes"
+msgstr "下行字节"
+
+msgid "Display mode"
+msgstr "显示模式"
+
+msgid "Simple Mode"
+msgstr "简易模式"
+
+msgid "Detailed Mode"
+msgstr "详细模式"
+
+msgid "Upload"
+msgstr "上传"
+
+msgid "Download"
+msgstr "下载"
+
+msgid "Y axis: B/s (bps÷8). Wheel zooms; hover for values."
+msgstr "纵轴为字节/秒（bps÷8）。滚轮缩放时间窗，悬停查看数值。"
+
+msgid "Today"
+msgstr "今天"
+
+msgid "This Week"
+msgstr "本周"
+
+msgid "Last Week"
+msgstr "上周"
+
+msgid "This Month"
+msgstr "本月"
+
+msgid "Last Month"
+msgstr "上月"
+
+msgid "Last 7 Days"
+msgstr "最近 7 天"
+
+msgid "Last 30 Days"
+msgstr "最近 30 天"
+
+msgid "Last 90 Days"
+msgstr "最近 90 天"
+
+msgid "Last Year"
+msgstr "最近一年"
+
+msgid "Histogram"
+msgstr "直方图"
+
+msgid "Query"
+msgstr "查询"
+
+msgid "Start Date"
+msgstr "开始日期"
+
+msgid "End Date"
+msgstr "结束日期"
+
+
+msgid "Reset"
+msgstr "复位"
+
+msgid "Aggregation:"
+msgstr "聚合方式："
+
+msgid "Device:"
+msgstr "设备："
+
+msgid "entries"
+msgstr "条"
+
+msgid "Iface"
+msgstr "接口"
+
+msgid "All devices"
+msgstr "所有设备"
+
+msgid "IPv4"
+msgstr "IPv4"
+
+msgid "IPv6"
+msgstr "IPv6"
+
+msgid "Upload Statistics"
+msgstr "上行统计"
+
+msgid "Download Statistics"
+msgstr "下行统计"
+
+msgid "Average"
+msgstr "平均"
+
+msgid "Maximum"
+msgstr "最大"
+
+msgid "Minimum"
+msgstr "最小"
+
+msgid "P95"
+msgstr "P95"
+
+msgid "Total Upload"
+msgstr "总上传"
+
+msgid "Total Download"
+msgstr "总下载"
+
+msgid "Total"
+msgstr "全部"
+
+msgid "No data"
+msgstr "暂无数据"
+
+msgid "Interface Overview"
+msgstr "接口概览"
+
+msgid "Traffic Timeline"
+msgstr "流量时间线"
+
+msgid "Device List"
+msgstr "设备列表"
+
+msgid "All interfaces already have rules"
+msgstr "所有接口都已有规则"
+
+msgid "Rule already exists for iface"
+msgstr "该接口已存在规则"
+
+msgid "Total Upload Usage"
+msgstr "总下载量"
+
+msgid "Total Download Usage"
+msgstr "总上传量"
+
+msgid "Total Usage"
+msgstr "全部"
+
+msgid "Set iface limit"
+msgstr "接口限速"
+
+msgid "Tip: 0 means unlimited"
+msgstr "提示: 0 代表无限制"
+
+msgid "Trend samples"
+msgstr "实时流量趋势"
+
+msgid "Device MAC"
+msgstr "选择设备"
+
+msgid "Traffic Type"
+msgstr "协议类型"
+
+
+msgid "Guest control"
+msgstr "来宾控制"
+
+
+msgid "Guest rules"
+msgstr "来宾规则"
+
+
+msgid "IPv4 Upload"
+msgstr "Ipv4 上传"
+
+msgid "IPv4 Download"
+msgstr "IPv4 下载"
+
+
+msgid "IPv6 Upload"
+msgstr "IPv4 上传"
+
+
+msgid "IPv6 Download"
+msgstr "IPv4 下载"
+
+
+msgid "Whitelist"
+msgstr "白名单"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Guest rule"
+msgstr "来宾规则"
+
+msgid "Schedule rules"
+msgstr "定时限速规则"
+
+
+msgid "Set hostname for this device."
+msgstr "设置主机名"
+
+
+msgid "Scheduled rate limits"
+msgstr "限速规则"
+
+
+msgid "No scheduled rules yet; click Add rule."
+msgstr "没有规则，点击添加"
+
+msgid "Add rule"
+msgstr "添加规则"
+
+msgid "Select MAC"
+msgstr "选择设备"
+
+msgid "Limit Rule"
+msgstr "限速规则"
+
+msgid "No rule"
+msgstr "无规则"
+
+msgid "Active"
+msgstr "生效中"
+
+msgid "Inactive"
+msgstr "未生效"
+
+msgid "Update schedule"
+msgstr "更新规则"
+
+msgid "Loading..."
+msgstr "加载中..."
+
+msgid "Loading in chunks, please wait... (%d/%d)"
+msgstr "分段加载中，请稍候...（%d/%d）"

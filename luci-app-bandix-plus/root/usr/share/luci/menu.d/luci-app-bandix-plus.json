@@ -1,0 +1,24 @@
+{
+	"admin/network/bandix_plus": {
+		"title": "Bandix Plus",
+		"order": 89,
+		"action": {
+			"type": "alias",
+			"path": "admin/network/bandix_plus/index"
+		},
+		"depends": {
+			"acl": [ "luci-app-bandix-plus" ],
+			"uci": { "bandix_plus": true }
+		}
+	},
+	"admin/network/bandix_plus/index": {
+		"title": "Status",
+		"order": 10,
+		"action": { "type": "view", "path": "bandix_plus/index" }
+	},
+	"admin/network/bandix_plus/settings": {
+		"title": "Settings",
+		"order": 20,
+		"action": { "type": "view", "path": "bandix_plus/settings" }
+	}
+}

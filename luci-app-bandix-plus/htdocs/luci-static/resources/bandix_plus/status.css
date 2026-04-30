@@ -1,0 +1,2355 @@
+.bplus-badge {
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid var(--bplus-border);
+  background: var(--bplus-card);
+  color: var(--bplus-text);
+  white-space: nowrap;
+}
+
+.bplus-header-badge {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* Trend chart title row + legend (bandix history-legend) */
+.bplus-trend-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.bplus-trend-title-row .bplus-panel-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.bplus-trend-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bplus-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--bplus-sub);
+}
+
+.bplus-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bplus-legend-up {
+  background: var(--bplus-up);
+}
+
+.bplus-legend-down {
+  background: var(--bplus-down);
+}
+
+.bplus-trend-controls {
+  margin-bottom: 12px;
+}
+
+.bplus-page {
+  --bplus-bg: #ffffff;
+  --bplus-card: #f8fafc;
+  --bplus-text: #1f2937;
+  --bplus-sub: #6b7280;
+  --bplus-border: #e5e7eb;
+  --bplus-accent: #0ea5e9;
+  /* 流量色：主色=方向；v4=同向偏沉；v6=同向偏淡（与 luci-app-bandix 橙/青一致，细分为一档明暗） */
+  --bplus-up: #f97316;
+  --bplus-down: #06b6d4;
+  --bplus-up-v4: #f97316;
+  --bplus-up-v6: #f97316;
+  --bplus-down-v4: #06b6d4;
+  --bplus-down-v6: #06b6d4;
+  color: var(--bplus-text);
+  font-size: 16px;
+  /* LuCI 内容区常为 flex 子项，不设 min-width:0 时子树 intrinsic 宽度会撑破视口 */
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.bplus-page.theme-dark {
+  --bplus-bg: #131720;
+  --bplus-card: #1d2431;
+  --bplus-text: #e5e7eb;
+  --bplus-sub: #b4c0ce;
+  --bplus-border: #334155;
+  --bplus-accent: #38bdf8;
+  --bplus-up: #f97316;
+  --bplus-down: #06b6d4;
+  --bplus-up-v4: #f97316;
+  --bplus-up-v6: #f97316;
+  --bplus-down-v4: #06b6d4;
+  --bplus-down-v6: #06b6d4;
+}
+
+/* LuCI / Argon 等主题会给 h2[name=content] 或区块标题加左侧色条，在此页内关闭 */
+.bplus-page h1[name="content"],
+.bplus-page h2[name="content"],
+.bplus-page h3[name="content"],
+.bplus-page .overview-card .overview-card__title,
+.bplus-page .policy-card > h3 {
+  border-left: none !important;
+  border-inline-start: none !important;
+  box-shadow: none !important;
+  padding-left: 0 !important;
+  padding-inline-start: 0 !important;
+  margin-left: 0 !important;
+  margin-inline-start: 0 !important;
+}
+
+.bplus-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: 14px;
+}
+
+.bplus-title {
+  margin-bottom: 4px;
+}
+
+.bplus-version {
+  font-size: 14px;
+  color: var(--bplus-sub);
+}
+
+.bplus-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.bplus-toolbar label {
+  font-size: 14px;
+  color: var(--bplus-sub);
+}
+
+.bplus-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.bplus-card {
+  background: var(--bplus-card);
+  border: 1px solid var(--bplus-border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.bplus-card-title {
+  font-size: 14px;
+  color: var(--bplus-sub);
+}
+
+.bplus-card-value {
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.bplus-card-sub {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--bplus-sub);
+}
+
+.bplus-section {
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--bplus-bg);
+  border: 1px solid var(--bplus-border);
+  border-radius: 10px;
+}
+
+.bplus-section h3,
+.bplus-section h4 {
+  margin-top: 0;
+}
+
+.bplus-section h4 {
+  margin-bottom: 8px;
+}
+
+.bplus-tip {
+  margin: 0 0 10px;
+  color: var(--bplus-sub);
+  font-size: 14px;
+}
+
+.bplus-form-help {
+  margin: 6px 0 10px;
+  color: var(--bplus-sub);
+  font-size: 14px;
+}
+
+.bplus-chart-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.bplus-chart-canvas {
+  width: 100%;
+  height: 260px;
+  border: 1px solid var(--bplus-border);
+  border-radius: 8px;
+  background: var(--bplus-card);
+  display: block;
+}
+
+.bplus-stats-chart {
+  height: 240px;
+}
+
+.bplus-tooltip {
+  position: fixed;
+  z-index: 1000;
+  display: none;
+  min-width: 190px;
+  max-width: 320px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--bplus-border);
+  background: var(--bplus-bg);
+  color: var(--bplus-text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  font-size: 14px;
+}
+
+/* Trend samples hover: same ht-* layout as luci-app-bandix history-tooltip */
+.bplus-page .bplus-tooltip.history-tooltip {
+  pointer-events: none;
+  min-width: 260px;
+  max-width: 420px;
+  padding: 12px;
+  font-size: 0.8125rem;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--bplus-border);
+  padding-bottom: 4px;
+  font-size: 0.875rem;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 2px;
+  margin-bottom: 6px;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-kpi .ht-k-label {
+  opacity: 0.7;
+  font-size: 0.75rem;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-kpi .ht-k-value {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-kpi.up .ht-k-value {
+  color: var(--bplus-up);
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-kpi.down .ht-k-value {
+  color: var(--bplus-down);
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-divider {
+  height: 1px;
+  background-color: var(--bplus-border);
+  margin: 8px 0;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-section-title {
+  font-weight: 600;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin: 4px 0 6px 0;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.8125rem;
+  margin-bottom: 2px;
+}
+
+.bplus-page .bplus-tooltip.history-tooltip .ht-key {
+  opacity: 0.7;
+}
+
+@media (max-width: 520px) {
+  .bplus-page .bplus-tooltip.history-tooltip {
+    min-width: 220px;
+    max-width: min(100vw - 24px, 400px);
+  }
+}
+
+/* Histogram hover: same structure as luci-app-bandix traffic-increments-tooltip */
+.bplus-page .bplus-tooltip.traffic-increments-tooltip {
+  pointer-events: none;
+  min-width: 420px;
+  max-width: 560px;
+  padding: 12px;
+  font-size: 0.8125rem;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-families {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+  align-items: start;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-families .traffic-increments-tooltip-section {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-col .ht-kpis {
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-col .ht-divider {
+  margin: 6px 0;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-col .ht-section-title {
+  margin: 2px 0 4px 0;
+  font-size: 0.7rem;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-col .bplus-hist-tooltip-dlstats-title {
+  margin-top: 4px;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-col .ht-row {
+  margin-bottom: 1px;
+  font-size: 0.75rem;
+  gap: 8px;
+}
+
+.bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-col .ht-kpi .ht-k-value {
+  font-size: 0.9rem;
+}
+
+@media (max-width: 520px) {
+  .bplus-page .bplus-tooltip.traffic-increments-tooltip {
+    min-width: 260px;
+    max-width: min(100vw - 24px, 360px);
+  }
+
+  .bplus-page .traffic-increments-tooltip .bplus-hist-tooltip-families {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bplus-page .traffic-increments-tooltip .traffic-increments-tooltip-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--bplus-border);
+  padding-bottom: 4px;
+  font-size: 0.875rem;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 2px;
+  margin-bottom: 6px;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-kpi .ht-k-label {
+  opacity: 0.7;
+  font-size: 0.75rem;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-kpi .ht-k-value {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-kpi.up .ht-k-value {
+  color: var(--bplus-up);
+}
+
+.bplus-page .traffic-increments-tooltip .ht-kpi.down .ht-k-value {
+  color: var(--bplus-down);
+}
+
+.bplus-page .traffic-increments-tooltip .ht-divider {
+  height: 1px;
+  background-color: var(--bplus-border);
+  margin: 8px 0;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-section-title {
+  font-weight: 600;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin: 4px 0 6px 0;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.8125rem;
+  margin-bottom: 2px;
+}
+
+.bplus-page .traffic-increments-tooltip .ht-key {
+  opacity: 0.7;
+}
+
+.bplus-page .traffic-increments-tooltip .traffic-increments-tooltip-section {
+  margin-bottom: 10px;
+}
+
+.bplus-page .traffic-increments-tooltip .traffic-increments-tooltip-section:last-child {
+  margin-bottom: 0;
+}
+
+.bplus-page .traffic-increments-tooltip .traffic-increments-tooltip-section-title {
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  color: var(--bplus-sub);
+  border-bottom: 1px solid var(--bplus-border);
+  padding-bottom: 2px;
+}
+
+.bplus-tip-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.bplus-tip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 3px;
+}
+
+.bplus-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.bplus-table th,
+.bplus-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bplus-table th {
+  font-size: 14px;
+}
+
+.bplus-page .bplus-table--devices th,
+.bplus-page .bplus-table--devices td {
+  text-align: left;
+}
+
+.bplus-page .bplus-table--devices td.bplus-device-td-stacked {
+  white-space: normal;
+  vertical-align: top;
+}
+
+.bplus-page .bplus-device-metric-stack {
+  display: grid;
+  gap: 4px 0;
+  min-width: 0;
+}
+
+.bplus-page .bplus-device-metric-total {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bplus-page .bplus-device-metric-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 2px 0;
+  font-size: 0.82rem;
+  color: var(--bplus-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.bplus-sortable {
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  padding-right: 16px;
+}
+
+.bplus-sortable::after {
+  content: '↕';
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: .45;
+  font-size: 10px;
+}
+
+.bplus-sortable.asc::after {
+  content: '↑';
+  opacity: .9;
+}
+
+.bplus-sortable.desc::after {
+  content: '↓';
+  opacity: .9;
+}
+
+.bplus-empty {
+  text-align: center;
+  color: var(--bplus-sub);
+  padding: 16px 6px;
+}
+
+.bplus-host {
+  font-weight: 600;
+}
+
+.bplus-page .bplus-table--devices td.bplus-host-cell--stacked {
+  white-space: normal;
+  vertical-align: top;
+}
+
+.bplus-page .bplus-host-stack {
+  display: grid;
+  gap: 4px 0;
+  min-width: 0;
+}
+
+.bplus-page .bplus-host-primary {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bplus-page .bplus-host-sub {
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--bplus-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.bplus-subline {
+  font-size: 14px;
+  color: var(--bplus-sub);
+}
+
+.bplus-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.bplus-form-inline {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(90px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.bplus-form-inline input,
+.bplus-form-inline select,
+.bplus-histogram-section .traffic-increments-query input,
+.bplus-histogram-section .traffic-increments-query select,
+.bplus-usage-ranking-section .traffic-increments-query input,
+.bplus-usage-ranking-section .traffic-increments-query select,
+.bplus-histogram-section .traffic-increments-filters select {
+  width: 100%;
+  min-width: 0;
+}
+
+.bplus-form-inline .btn {
+  margin: 0;
+}
+
+.bplus-page .table-wrapper {
+  overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.bplus-page .bplus-chart-wrap {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.bplus-page .bplus-trend-title-row {
+  min-width: 0;
+}
+
+.bplus-page .bplus-trend-title-row .bplus-panel-head {
+  min-width: 0;
+}
+
+.bplus-page tr.is-online {
+  box-shadow: inset 3px 0 0 #16a34a;
+}
+
+.bplus-page tr.is-offline {
+  opacity: 0.92;
+}
+
+@media (max-width: 1400px) {
+  .bplus-cards {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .bplus-form-inline {
+    grid-template-columns: repeat(5, minmax(120px, 1fr));
+  }
+
+}
+
+@media (max-width: 860px) {
+  .bplus-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .bplus-form-inline {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+
+  .bplus-chart-canvas {
+    height: 220px;
+  }
+}
+
+/* —— bandix-plus-web aligned layout (.bplus-page scoped) —— */
+.bplus-page .bplus-main {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.bplus-page .bplus-topbar {
+  padding: 14px 16px;
+  background: var(--bplus-card);
+  border: 1px solid var(--bplus-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.bplus-page .bplus-topbar .bplus-title-wrap h1 {
+  margin: 0;
+  font-size: clamp(1.28rem, 2.1vw, 1.58rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bplus-page .bplus-topbar .bplus-title-wrap p {
+  margin: 4px 0 0;
+  font-size: 0.95rem;
+  color: var(--bplus-sub);
+}
+
+.bplus-page .bplus-control-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.bplus-page .bplus-control-grid .cbi-input-text,
+.bplus-page .bplus-control-grid .cbi-input-select {
+  min-width: 8em;
+}
+
+.bplus-page .bplus-status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.94rem;
+  color: var(--bplus-sub);
+}
+
+.bplus-page .bplus-badge-ok {
+  color: #16a34a;
+  border-color: #86efac;
+  background: #ecfdf5;
+}
+
+.bplus-page.theme-dark .bplus-badge-ok {
+  color: #4ade80;
+  border-color: #166534;
+  background: #14532d;
+}
+
+.bplus-page .bplus-badge-fail {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.bplus-page.theme-dark .bplus-badge-fail {
+  color: #f87171;
+  border-color: #7f1d1d;
+  background: #450a0a;
+}
+
+.bplus-page .bplus-panel {
+  padding: 14px 16px;
+  background: var(--bplus-bg);
+  border: 1px solid var(--bplus-border);
+  border-radius: 12px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.bplus-page .bplus-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.bplus-page .bplus-panel-head h2,
+.bplus-page .bplus-panel-head h3 {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 600;
+  color: var(--bplus-text);
+}
+
+/* 接口总览：与 luci-app-bandix stats-grid 三张卡 .stats-card-title 一致 */
+.bplus-page .bplus-main > .bplus-panel:first-of-type .bplus-panel-head h2 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--bplus-text);
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin: 0 0 12px 0;
+  line-height: 1.3;
+}
+
+/* 与 luci-app-bandix 类似：显式前景色，避免主题全局 h2/h3 盖掉继承色 */
+.bplus-page .bplus-main > .bplus-panel h2,
+.bplus-page .bplus-main > .bplus-panel h3,
+.bplus-page .bplus-trend-title-row h2 {
+  color: var(--bplus-text);
+}
+
+.bplus-page .overview-card,
+.bplus-page .overview-card__title,
+.bplus-page .overview-pill,
+.bplus-page .policy-card,
+.bplus-page .policy-card h3 {
+  color: var(--bplus-text);
+}
+
+.bplus-page .meta-pill {
+  background: var(--bplus-card);
+  color: var(--bplus-sub);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: 1px solid var(--bplus-border);
+}
+
+.bplus-page .bplus-overview-head-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bplus-page .bplus-rate-unit-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 3px;
+  border-radius: 999px;
+  border: 1px solid var(--bplus-border);
+  background: var(--bplus-card);
+}
+
+.bplus-page .bplus-unit-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--bplus-sub);
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  flex: 0 0 26px;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 0.62rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.bplus-page .bplus-unit-btn:hover {
+  color: var(--bplus-text);
+}
+
+.bplus-page .bplus-unit-btn.is-active {
+  color: #fff;
+  background: var(--bplus-accent);
+  border-color: var(--bplus-accent);
+}
+
+.bplus-page .bplus-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  margin-bottom: 12px;
+}
+
+.bplus-page .bplus-inline-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.92rem;
+  color: var(--bplus-sub);
+}
+
+.bplus-page .bplus-inline-form .cbi-input-select,
+.bplus-page .bplus-inline-form .cbi-input-text {
+  min-width: 10em;
+}
+
+.bplus-page .overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* 仅 1 张接口卡时占满一行 */
+.bplus-page .overview-grid > .overview-card:only-of-type {
+  grid-column: 1 / -1;
+}
+
+/* 每行最多 3 张；若最后一行只余 1 张（1、4、7… 张时最后一张），拉满该行 */
+.bplus-page .overview-grid:has(> .overview-card:nth-child(3n + 1):last-child) > .overview-card:nth-child(3n + 1):last-child {
+  grid-column: 1 / -1;
+}
+
+.bplus-page .overview-state {
+  grid-column: 1 / -1;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  font-weight: 600;
+  padding: 20px 14px;
+  border-radius: 12px;
+  border: 1px dashed var(--bplus-border);
+  background: var(--bplus-card);
+}
+
+.bplus-page .overview-state--empty {
+  color: var(--bplus-sub);
+}
+
+.bplus-page .overview-state--error {
+  color: #b91c1c;
+}
+
+.bplus-page .overview-card {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--bplus-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: var(--bplus-card);
+  display: grid;
+  gap: 12px;
+}
+
+/* 使用 div 而非 header：LuCI 主题常给 <header> 加左侧色条；与 luci-app-bandix .device-card-header 一致 */
+.bplus-page .overview-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--bplus-border);
+  margin: 0;
+  border-left: none;
+  border-top: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.bplus-page .overview-card__title {
+  margin: 0;
+  /* 同 bandix 卡顶标题字号，接口名不做 uppercase */
+  font-size: 0.875rem;
+  font-weight: 600;
+  opacity: 0.7;
+  letter-spacing: 0.025em;
+  word-break: break-word;
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.bplus-page .overview-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+  justify-content: flex-end;
+}
+
+.bplus-page .overview-card__actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.bplus-page .bplus-overview-limit-btn {
+  margin: 0;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bplus-page .overview-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  background: var(--bplus-bg);
+  border: 1px solid var(--bplus-border);
+}
+
+.bplus-page .overview-pill--zone {
+  opacity: 0.95;
+}
+
+.bplus-page .overview-card__block {
+  display: grid;
+  gap: 8px;
+}
+
+.bplus-page .overview-card__block--limit {
+  border-top: 1px dashed var(--bplus-border);
+  padding-top: 8px;
+}
+
+.bplus-page .overview-limit-head {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--bplus-sub);
+  letter-spacing: 0.01em;
+}
+
+.bplus-page .overview-limit-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.bplus-page .overview-limit-k {
+  color: var(--bplus-sub);
+  flex-shrink: 0;
+}
+
+.bplus-page .overview-limit-v {
+  text-align: right;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.bplus-page .overview-hero-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px 12px;
+  align-items: stretch;
+  min-width: 0;
+  width: 100%;
+}
+
+@media (max-width: 360px) {
+  .bplus-page .overview-hero-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bplus-page .overview-hero-speed {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  align-content: start;
+  gap: 2px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--bplus-bg);
+  border: 1px solid var(--bplus-border);
+  min-width: 0;
+}
+
+/* 对齐 luci-app-bandix .stats-card-title：次要标题色，非上行/下行大色块 */
+.bplus-page .overview-hero-speed__title-row {
+  width: 100%;
+  margin: 0 0 6px;
+}
+
+.bplus-page .overview-hero-speed__title {
+  display: block;
+  /* bandix 卡内 ↑↓ 行：0.75rem + bold */
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  color: var(--bplus-sub);
+  opacity: 0.95;
+  min-width: 0;
+}
+
+.bplus-page .overview-hero-speed__rates-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: baseline;
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 4px;
+}
+
+/* 综合速率左、流量用量（括号累计）右 */
+.bplus-page .overview-hero-speed__total-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.bplus-page .overview-hero-speed__total {
+  /* bandix 三张卡主速率：1.125rem、700、系统无衬线 */
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--bplus-text);
+}
+
+.bplus-page .overview-hero-speed--up .overview-hero-speed__total {
+  color: var(--bplus-up);
+}
+
+.bplus-page .overview-hero-speed--down .overview-hero-speed__total {
+  color: var(--bplus-down);
+}
+
+.bplus-page .overview-hero-speed__cum {
+  /* bandix 括号累计：0.75rem、#64748b 系次要色 */
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--bplus-sub);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  line-height: 1.2;
+  justify-self: end;
+  text-align: right;
+}
+
+.bplus-page .overview-hero-speed__split {
+  margin: 4px 0 0;
+  padding-top: 0;
+  border-top: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.bplus-page .overview-hero-speed__split-item {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  display: block;
+  padding-left: 0.1em;
+}
+
+.bplus-page .overview-hero-speed__split-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.bplus-page .overview-hero-speed__split-rate {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  padding-left: 0.1em;
+  color: var(--bplus-text);
+}
+
+.bplus-page .policy-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.bplus-page .policy-card {
+  border: 1px solid var(--bplus-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: var(--bplus-card);
+  display: grid;
+  gap: 10px;
+}
+
+.bplus-page .policy-card h3 {
+  margin: 0;
+  font-size: 1.06rem;
+  font-weight: 600;
+}
+
+.bplus-page .guest-policy-card {
+  gap: 12px;
+}
+
+.bplus-page .guest-policy-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.bplus-page .guest-policy-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bplus-page .guest-policy-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bplus-page .guest-policy-pane {
+  min-width: 0;
+}
+
+.bplus-page .bplus-guest-enabled-pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.bplus-page .bplus-guest-enabled-pill.is-enabled {
+  color: #0f766e;
+  background: rgba(6, 182, 212, 0.16);
+}
+
+.bplus-page .bplus-guest-enabled-pill.is-disabled {
+  color: #9a3412;
+  background: rgba(249, 115, 22, 0.16);
+}
+
+.bplus-page .bplus-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+}
+
+.bplus-page .bplus-guest-whitelist-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.bplus-page .bplus-guest-whitelist-add-row .cbi-input-text,
+.bplus-page .bplus-guest-whitelist-add-row .cbi-input-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bplus-page .bplus-guest-whitelist-table {
+  margin-top: 8px;
+}
+
+.bplus-page .bplus-guest-whitelist-table td,
+.bplus-page .bplus-guest-whitelist-table th {
+  text-align: left;
+}
+
+.bplus-page .bplus-guest-rules-table td,
+.bplus-page .bplus-guest-rules-table th {
+  white-space: nowrap;
+  text-align: left;
+}
+
+.bplus-page .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(110px, 1fr));
+  gap: 8px;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .bplus-page .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bplus-page .form-grid .field-wide {
+  grid-column: 1 / -1;
+}
+
+.bplus-page .days-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.bplus-page .days-row label {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 0.92rem;
+}
+
+.bplus-page .actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bplus-page .chart-hint {
+  margin: 8px 0 0;
+  font-size: 0.88rem;
+  color: var(--bplus-sub);
+}
+
+/* Histogram controls (layout matches luci-app-bandix Traffic Timeline) */
+.bplus-page .bplus-histogram-section .usage-ranking-header,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-title,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-timerange,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-timerange {
+  font-size: 0.8125rem;
+  opacity: 0.75;
+  font-weight: 400;
+  color: var(--bplus-sub);
+  text-align: right;
+  flex: 1;
+  min-width: min(100%, 14em);
+}
+
+/* Device usage ranking list (ported from luci-app-bandix) */
+.bplus-page .bplus-usage-ranking-section .usage-ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.bplus-page.theme-dark .bplus-usage-ranking-section .usage-ranking-item {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-item:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.bplus-page.theme-dark .bplus-usage-ranking-section .usage-ranking-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--progress-width, 0%);
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.18) 0%, rgba(59, 130, 246, 0.10) 100%);
+  z-index: 0;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-item > * {
+  position: relative;
+  z-index: 1;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-device {
+  flex: 1;
+  min-width: 0;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 0.75rem;
+  opacity: 0.6;
+  font-family: monospace;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-meta > span {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-meta-total {
+  opacity: 0.95;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-traffic {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-traffic-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-traffic-item.rx {
+  color: var(--bplus-down);
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-traffic-item.tx {
+  color: var(--bplus-up);
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-traffic-item.total {
+  color: var(--bplus-sub);
+  font-weight: 600;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-traffic-arrow {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 12px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  border: 1px solid var(--bplus-border);
+}
+
+.bplus-page.theme-dark .bplus-usage-ranking-section .usage-ranking-controls {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-info-text {
+  opacity: 0.75;
+  color: var(--bplus-sub);
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-toggle-btn {
+  padding: 6px 12px;
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.bplus-page .bplus-usage-ranking-section .usage-ranking-toggle-btn:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+.bplus-page .bplus-histogram-section .traffic-increments-query,
+.bplus-page .bplus-usage-ranking-section .traffic-increments-query {
+  margin-bottom: 12px;
+  padding: 16px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+  border: 1px solid var(--bplus-border);
+}
+
+.bplus-page.theme-dark .bplus-histogram-section .traffic-increments-query,
+.bplus-page.theme-dark .bplus-usage-ranking-section .traffic-increments-query {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-date-range-row,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-date-range-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-date-picker-wrapper,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-date-picker-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-network-type-wrapper,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-network-type-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 120px;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-network-label,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-network-label,
+.bplus-page .bplus-histogram-section .usage-ranking-date-label,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-date-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  opacity: 0.7;
+  color: var(--bplus-sub);
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-date-separator,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-date-separator {
+  font-size: 1.25rem;
+  opacity: 0.4;
+  margin-bottom: 28px;
+  font-weight: 300;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-query-actions,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-query-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-query-presets,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-query-presets {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-timeline,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-timeline {
+  height: 4px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+  position: relative;
+}
+
+.bplus-page.theme-dark .bplus-histogram-section .usage-ranking-timeline,
+.bplus-page.theme-dark .bplus-usage-ranking-section .usage-ranking-timeline {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.bplus-page .bplus-histogram-section .usage-ranking-timeline-range,
+.bplus-page .bplus-usage-ranking-section .usage-ranking-timeline-range {
+  position: absolute;
+  height: 100%;
+  left: 0;
+  width: 0;
+  background-color: var(--bplus-accent);
+  border-radius: 2px;
+  transition: left 0.25s ease, width 0.25s ease;
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-filter-label {
+  font-size: 0.8125rem;
+  opacity: 0.7;
+  white-space: nowrap;
+  color: var(--bplus-sub);
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-filters .cbi-input-select {
+  min-width: 120px;
+}
+
+.bplus-page .bplus-histogram-section .bplus-stats-loading-notice {
+  margin: 0 0 12px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(14, 165, 233, 0.28);
+  background: rgba(14, 165, 233, 0.08);
+  color: var(--bplus-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.bplus-page.theme-dark .bplus-histogram-section .bplus-stats-loading-notice {
+  border-color: rgba(56, 189, 248, 0.38);
+  background: rgba(56, 189, 248, 0.16);
+}
+
+.bplus-page .bplus-histogram-section .cbi-button-reset {
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.bplus-page.theme-dark .bplus-histogram-section .cbi-button-reset {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+/* Histogram chart footer: legend + totals (luci-app-bandix traffic-increments) */
+.bplus-page .bplus-histogram-section .traffic-stats-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 8px;
+}
+
+.bplus-page .bplus-histogram-section .traffic-stats-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  color: var(--bplus-text);
+}
+
+.bplus-page .bplus-histogram-section .traffic-stats-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.bplus-page .bplus-histogram-section .traffic-stats-legend-dot.rx {
+  background-color: var(--bplus-down);
+}
+
+.bplus-page .bplus-histogram-section .traffic-stats-legend-dot.tx {
+  background-color: var(--bplus-up);
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-summary-item {
+  text-align: center;
+  padding: 12px;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--bplus-border);
+}
+
+.bplus-page.theme-dark .bplus-histogram-section .traffic-increments-summary-item {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-summary-label {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-bottom: 4px;
+  color: var(--bplus-sub);
+}
+
+.bplus-page .bplus-histogram-section .traffic-increments-summary-value {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+  .bplus-page .bplus-histogram-section .traffic-stats-legend {
+    display: none;
+  }
+
+  .bplus-page .bplus-histogram-section .traffic-increments-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bplus-page .bplus-section--flush {
+  margin-top: 0;
+}
+
+.bplus-page .form-grid label,
+.bplus-page .form-grid .field {
+  display: grid;
+  gap: 4px;
+  font-size: 0.92rem;
+  color: var(--bplus-sub);
+}
+
+.bplus-page .form-grid .cbi-input-text,
+.bplus-page .form-grid .cbi-input-select {
+  width: 100%;
+  min-width: 0;
+}
+
+.bplus-page .bplus-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  font-size: 0.94rem;
+  font-weight: 600;
+}
+
+.bplus-page .bplus-toggle input {
+  width: auto;
+}
+
+.bplus-page .bplus-device-actions {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.bplus-page .bplus-device-actions .btn {
+  margin: 0;
+}
+
+.bplus-page .bplus-device-rule-pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.bplus-page .bplus-device-rule-pill.is-active {
+  color: #0f766e;
+  background: rgba(6, 182, 212, 0.16);
+}
+
+.bplus-page .bplus-device-rule-pill.is-inactive {
+  color: #9a3412;
+  background: rgba(249, 115, 22, 0.16);
+}
+
+.bplus-page .bplus-device-rule-pill.is-none {
+  color: var(--bplus-sub);
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.bplus-page .bplus-device-rule-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bplus-page .bplus-device-rule-count {
+  font-size: 0.8rem;
+  color: var(--bplus-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.bplus-page .bplus-device-rule-cell {
+  position: relative;
+  overflow: visible !important;
+  vertical-align: middle;
+}
+
+.bplus-page .bplus-device-rule-stack {
+  display: inline-flex;
+  position: relative;
+  min-width: 0;
+}
+
+.bplus-page .bplus-device-rule-popover {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 300px;
+  max-width: 520px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--bplus-border);
+  background: var(--bplus-bg);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  z-index: 40;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+.bplus-page .bplus-device-rule-stack:hover .bplus-device-rule-popover {
+  visibility: visible;
+  opacity: 1;
+}
+
+.bplus-page .bplus-device-rule-detail {
+  font-size: 0.8rem;
+  color: var(--bplus-sub);
+  line-height: 1.35;
+  padding: 2px 0;
+}
+
+.bplus-page .bplus-device-rule-detail + .bplus-device-rule-detail {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--bplus-border);
+}
+
+.bplus-page .bplus-device-rule-time,
+.bplus-page .bplus-device-rule-speed {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.bplus-page .table-wrapper.compact {
+  max-height: 280px;
+  overflow: auto;
+}
+
+/* Schedule rate-limit modal (aligned with luci-app-bandix bandix-modal) */
+.bplus-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  background: rgba(15, 23, 42, 0.55);
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+}
+
+.bplus-modal-overlay.show {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bplus-modal-overlay--stack {
+  z-index: 10060;
+}
+
+/* Schedule delete confirm — same structure/classes as luci-app-bandix confirm-dialog */
+#bplus-schedule-delete-confirm.bandix-modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10070;
+  background-color: rgba(0, 0, 0, 0);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+#bplus-schedule-delete-confirm.bandix-modal-overlay.show {
+  background-color: rgba(0, 0, 0, 0.5);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+#bplus-schedule-delete-confirm .modal-content {
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+#bplus-schedule-delete-confirm .bandix-modal {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  background-color: var(--bplus-bg) !important;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+#bplus-schedule-delete-confirm.bandix-modal-overlay.show .bandix-modal {
+  opacity: 1;
+}
+
+#bplus-schedule-delete-confirm .confirm-dialog {
+  max-width: 400px;
+}
+
+#bplus-schedule-delete-confirm .confirm-dialog .bandix-modal-body {
+  padding: 24px;
+}
+
+#bplus-schedule-delete-confirm .confirm-dialog-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--bplus-text);
+}
+
+#bplus-schedule-delete-confirm .confirm-dialog-message {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  color: var(--bplus-sub);
+}
+
+#bplus-schedule-delete-confirm .confirm-dialog-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.bplus-schedule-hub-summary {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--bplus-border);
+}
+
+.bplus-schedule-hub-primary {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.bplus-schedule-hub-meta {
+  margin-top: 6px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--bplus-sub);
+  word-break: break-word;
+}
+
+.bplus-schedule-hostname-block {
+  margin-top: 0;
+}
+
+.bplus-schedule-hostname-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.bplus-schedule-hostname-actions .cbi-input-text {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+
+.bplus-schedule-hub-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 16px 0 10px;
+}
+
+.bplus-schedule-rules-list {
+  max-height: min(240px, 40vh);
+  overflow: auto;
+  border: 1px solid var(--bplus-border);
+  border-radius: 8px;
+  background: var(--bplus-card);
+  padding: 6px 8px;
+}
+
+.bplus-schedule-rules-empty {
+  text-align: center;
+  padding: 16px 8px;
+  font-size: 0.875rem;
+  opacity: 0.72;
+}
+
+.bplus-schedule-rule-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--bplus-border);
+  font-size: 0.875rem;
+}
+
+.bplus-schedule-rule-item:last-child {
+  border-bottom: none;
+}
+
+.bplus-schedule-rule-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bplus-schedule-rule-time {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.bplus-schedule-rule-days {
+  font-size: 0.8125rem;
+  color: var(--bplus-sub);
+  margin-bottom: 4px;
+}
+
+.bplus-schedule-rule-limits {
+  font-size: 0.8125rem;
+}
+
+.bplus-schedule-rule-limits--detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.bplus-schedule-limit-line {
+  line-height: 1.35;
+}
+
+.bplus-schedule-rule-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+}
+
+.bplus-modal-panel--rule .bplus-schedule-form > .bplus-form-group:first-child {
+  margin-top: 4px;
+}
+
+.bplus-modal-panel {
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(92vh, 780px);
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid var(--bplus-border);
+  background: var(--bplus-bg);
+  color: var(--bplus-text);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+  box-sizing: border-box;
+}
+
+.bplus-modal-panel.bplus-modal-panel--hub {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.bplus-modal-panel.bplus-modal-panel--rule {
+  width: min(720px, calc(100vw - 32px));
+}
+
+.bplus-modal-panel.bplus-modal-panel--iface-limit {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.bplus-modal-panel.bplus-modal-panel--guest {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.bplus-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--bplus-border);
+}
+
+.bplus-modal-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.bplus-modal-dismiss {
+  flex-shrink: 0;
+  font-size: 1.35rem;
+  line-height: 1;
+  padding: 2px 10px 6px;
+  min-width: 0;
+}
+
+.bplus-modal-body {
+  padding: 4px 18px 18px;
+}
+
+.bplus-schedule-summary {
+  padding: 2px 0 10px;
+  margin: 0 0 6px;
+  border-bottom: 1px solid var(--bplus-border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bplus-schedule-summary-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.bplus-schedule-kv {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.bplus-schedule-kv-sep {
+  opacity: 0.4;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.bplus-schedule-summary-k {
+  font-weight: 600;
+  opacity: 0.72;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.bplus-schedule-summary-v {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.bplus-schedule-form .bplus-schedule-limits-block .bplus-form-hint {
+  margin-top: 8px;
+}
+
+.bplus-schedule-rate-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 20px;
+  align-items: start;
+}
+
+.bplus-schedule-rate-col {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bplus-form-sublabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  opacity: 0.72;
+}
+
+.bplus-schedule-form .bplus-rate-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.bplus-schedule-form .bplus-rate-input-row .cbi-input-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 130px;
+}
+
+.bplus-schedule-form .bplus-rate-unit-select {
+  width: 84px;
+  min-width: 84px;
+  max-width: 84px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 520px) {
+  .bplus-schedule-rate-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bplus-schedule-form .bplus-form-group {
+  margin-top: 14px;
+}
+
+.bplus-schedule-form .bplus-form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  opacity: 0.78;
+  margin-bottom: 6px;
+}
+
+.bplus-schedule-form .cbi-input-text {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.bplus-iface-limit-form .cbi-input-text[readonly] {
+  opacity: 0.85;
+  cursor: default;
+}
+
+.bplus-form-hint {
+  font-size: 0.75rem;
+  color: var(--bplus-sub);
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.bplus-schedule-time-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bplus-schedule-time-input {
+  flex: 1;
+  min-width: 7em;
+}
+
+.bplus-schedule-time-sep {
+  opacity: 0.55;
+  font-size: 0.875rem;
+}
+
+.bplus-schedule-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bplus-schedule-day-btn {
+  flex: 1;
+  min-width: 40px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--bplus-border);
+  background: var(--bplus-card);
+  color: var(--bplus-text);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.bplus-schedule-day-btn:hover {
+  border-color: var(--bplus-accent);
+}
+
+.bplus-schedule-day-btn.active {
+  background: var(--bplus-accent);
+  color: #fff;
+  border-color: var(--bplus-accent);
+}
+
+.bplus-modal-form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--bplus-border);
+}
+
+.bplus-schedule-card-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.bplus-schedule-card-toolbar .bplus-subline {
+  flex: 1 1 200px;
+  margin: 0;
+  min-width: 0;
+}
