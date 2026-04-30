@@ -1,4 +1,4 @@
-# bandix-plus HTTP API (default --api-bind 0.0.0.0:9911)
+# bandix-plus HTTP API (default --api-bind 0.0.0.0:8787)
 # LuCI 仅将 curl 指到 127.0.0.1:port
 config bandix_plus 'general'
-	option port '9911'
+	option port '8787'

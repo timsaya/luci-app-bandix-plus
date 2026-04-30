@@ -4,6 +4,7 @@
 'require uci';
 'require rpc';
 'require ui';
+'require tools.widgets as widgets';
 var callGetVersion = rpc.declare({ object: 'luci.bandix_plus', method: 'getVersion', expect: {} });
 var callRestart = rpc.declare({ object: 'luci.bandix_plus', method: 'restartService', expect: {} });
 
@@ -15,34 +16,37 @@ function bplusJson(r) {
 
 return view.extend({
 	load: function () {
-		return Promise.all([ uci.load('bandix_plus'), callGetVersion().then(bplusJson) ]);
+		return Promise.all([
+			uci.load('bandix-plus'),
+			uci.load('network'),
+			callGetVersion().then(bplusJson)
+		]);
 	},
-	handleSaveApply: null, handleSave: function () { return uci.save(); },
-	handleReset: null,
-
-	addFooter: function () { return null; },
 
 	render: function (load) {
 		var m, s, o;
-		var vinfo = load[ 1 ] || {};
+		var vinfo = load[ 2 ] || {};
 
-		if (!uci.get('bandix_plus', 'general')) {
-			uci.add('bandix_plus', 'bandix_plus', 'general');
+		if (!uci.get('bandix-plus', 'general')) {
+			uci.add('bandix-plus', 'bandix_plus', 'general');
 		}
 
-		m = new form.Map('bandix_plus', _('Bandix Plus'), _('Runtime options for openwrt-bandix-plus service.'));
+		m = new form.Map('bandix-plus', _('Bandix Plus'), _('Runtime options for openwrt-bandix-plus service.'));
 		m.versionInfo = vinfo;
 
 		s = m.section(form.NamedSection, 'general', 'bandix_plus', _('General'));
 		s.addremove = false;
-		s.description = _('This page edits /etc/config/bandix-plus general options. Traffic collection is always enabled by init script.');
+		s.description = _('This page edits /etc/config/bandix-plus general options.');
 
-		o = s.option(form.Flag, 'enabled', _('Enabled'), _('Start bandix-plus service on boot.'));
+		o = s.option(form.Flag, 'enable_traffic', _('Enable traffic collection'), _('When disabled, bandix-plus service will not start.'));
 		o.default = '1';
 		o.rmempty = false;
 
-		o = s.option(form.DynamicList, 'iface', _('Interfaces'), _('Interfaces to monitor, can specify multiple.'));
-		o.placeholder = 'br-lan';
+		o = s.option(widgets.DeviceSelect, 'iface', _('Interfaces'), _('Select one or more interfaces to monitor.'));
+		o.multiple = true;
+		o.noaliases = true;
+		o.nobridges = false;
+		o.nocreate = true;
 		o.rmempty = false;
 
 		o = s.option(form.ListValue, 'log_level', _('Log level'));
@@ -61,15 +65,21 @@ return view.extend({
 		o.default = 'first';
 		o.rmempty = false;
 
-		o = s.option(form.Value, 'history_window_minutes', _('History window (minutes)'));
-		o.datatype = 'uinteger';
-		o.placeholder = '10';
-		o.default = '10';
+		// o = s.option(form.Value, 'history_window_minutes', _('History window (minutes)'));
+		// o.datatype = 'uinteger';
+		// o.placeholder = '10';
+		// o.default = '10';
+		// o.rmempty = false;
+
+		o = s.option(form.Value, 'host', _('Host'));
+		o.placeholder = '127.0.0.1';
+		o.default = '127.0.0.1';
 		o.rmempty = false;
 
-		o = s.option(form.Value, 'api_bind', _('API bind'), _('Example: 127.0.0.1:8787'));
-		o.placeholder = '127.0.0.1:8787';
-		o.default = '127.0.0.1:8787';
+		o = s.option(form.Value, 'port', _('Port'));
+		o.datatype = 'port';
+		o.placeholder = '8787';
+		o.default = '8787';
 		o.rmempty = false;
 
 		o = s.option(form.Value, 'data_dir', _('Data directory'));
@@ -89,7 +99,9 @@ return view.extend({
 		o.inputstyle = 'action';
 		o.onclick = function () {
 			return callRestart().then(bplusJson).then(function (r) {
-				ui.addNotification(null, (r && r.ok === '1') ? _('restarted') : E('pre', {}, [ JSON.stringify(r) ]));
+				if (!r || r.ok !== '1') {
+					ui.addNotification(null, E('pre', {}, [ JSON.stringify(r) ]), 'error');
+				}
 			});
 		};
 
