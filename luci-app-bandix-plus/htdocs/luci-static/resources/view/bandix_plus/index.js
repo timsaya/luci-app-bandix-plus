@@ -159,6 +159,20 @@ function compareVal(a, b) {
 	return String(a).localeCompare(String(b));
 }
 
+function hasSameSelectOptions(sel, rows) {
+	if (!sel) return false;
+	var opts = sel.options || [];
+	if (opts.length !== rows.length) return false;
+	for (var i = 0; i < rows.length; i++) {
+		var opt = opts[i];
+		var row = rows[i];
+		if (!opt || !row) return false;
+		if (String(opt.value) !== String(row.value)) return false;
+		if (String(opt.textContent || '') !== String(row.label || '')) return false;
+	}
+	return true;
+}
+
 function deviceIfaceName(d) {
 	if (!d || typeof d !== 'object') return '';
 	var v = d.logical_iface != null ? String(d.logical_iface).trim() : '';
@@ -425,14 +439,16 @@ return view.extend({
 		/* luci-app-bandix historyHover: pause trend poll while pointer on chart (desktop). */
 		this.trendChartPauseRefresh = false;
 		this.statsHoverIndex = null;
-		this.rate = {
-			schedules: [],
-			ifaceLimits: [],
-			guestDefaults: [],
-			guestWhitelist: []
-		};
-		this.scheduleDayButtonList = [];
-	},
+			this.rate = {
+				schedules: [],
+				ifaceLimits: [],
+				guestDefaults: [],
+				guestWhitelist: []
+			};
+			this.scheduleDayButtonList = [];
+			this.liveReqSeq = 0;
+			this.trendReqSeq = 0;
+		},
 
 	setThemeClass: function () {
 		var m = getThemeMode();
@@ -640,11 +656,11 @@ return view.extend({
 	},
 
 	/** True while schedule hub or nested rule modal is visible — avoids tearing down tbody during poll refresh (lost click / ghost clicks). */
-	isScheduleHubUiOpen: function () {
-		return !!(this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.classList.contains('show'))
-			|| !!(this.el.scheduleRuleOverlay && this.el.scheduleRuleOverlay.classList.contains('show'))
-			|| !!(this.el.scheduleDeleteConfirmOverlay && this.el.scheduleDeleteConfirmOverlay.classList.contains('show'));
-	},
+		isScheduleHubUiOpen: function () {
+			return !!(this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.classList.contains('show'))
+				|| !!(this.el.scheduleRuleOverlay && this.el.scheduleRuleOverlay.classList.contains('show'))
+				|| !!(this.el.scheduleDeleteConfirmOverlay && this.el.scheduleDeleteConfirmOverlay.classList.contains('show'));
+		},
 
 	findDeviceForScheduleClick: function (macAttr, ifaceAttr) {
 		var mk = this.normalizeMacKey(macAttr);
@@ -658,12 +674,13 @@ return view.extend({
 		return null;
 	},
 
-	refreshLive: function (showErr) {
-		var self = this;
-		var p = this.applyPeriod(this.period);
-		var devIface = this.devicesFilterIface || '';
-		this.overviewError = null;
-		this.liveRefreshError = null;
+		refreshLive: function (showErr) {
+			var self = this;
+			var reqSeq = ++this.liveReqSeq;
+			var p = this.applyPeriod(this.period);
+			var devIface = this.devicesFilterIface || '';
+			this.overviewError = null;
+			this.liveRefreshError = null;
 		return Promise.all([
 			callGetOverview(p).then(function (r) { return unwrapData(r, []); }).catch(function (e) {
 				self.overviewError = e.message || String(e);
@@ -673,10 +690,11 @@ return view.extend({
 				self.liveRefreshError = e.message || String(e);
 				return [];
 			})
-		]).then(L.bind(function (res) {
-			this.overview = res[0] || [];
-			var rawDevices = Array.isArray(res[1]) ? res[1] : [];
-			this.devices = rawDevices.map(function (d) {
+			]).then(L.bind(function (res) {
+				if (reqSeq !== this.liveReqSeq) return;
+				this.overview = res[0] || [];
+				var rawDevices = Array.isArray(res[1]) ? res[1] : [];
+				this.devices = rawDevices.map(function (d) {
 				if (!d || typeof d !== 'object') return d;
 				if (!d.logical_iface) {
 					var iface = deviceIfaceName(d);
@@ -699,12 +717,12 @@ return view.extend({
 				if (!has) this.selectedIface = this.overview[0].ifname;
 			}
 
-			this.renderIfaceOptions();
-			this.renderDevicesIfaceFilterOptions();
-			this.renderTrendDeviceOptions();
-			this.renderStatsIfaceOptions();
-			this.renderStatsMacOptions();
-			this.renderOverviewGrid();
+				this.renderIfaceOptions();
+				this.renderDevicesIfaceFilterOptions();
+				this.renderTrendDeviceOptions();
+				this.renderStatsIfaceOptions();
+				this.renderStatsMacOptions();
+				this.renderOverviewGrid();
 			if (!this.isScheduleHubUiOpen()) {
 				this.renderDevicesTable();
 				this.syncRateFormIfaceOptions();
@@ -713,11 +731,12 @@ return view.extend({
 				this.el.overviewCount.textContent = String(this.overview.length) + ' 条';
 			}
 			return this.refreshTrend(false);
-		}, this)).catch(L.bind(function (e) {
-			this.liveRefreshError = e.message || String(e);
-			if (showErr) this.notifyError(_('Failed to refresh status'), e);
-		}, this));
-	},
+			}, this)).catch(L.bind(function (e) {
+				if (reqSeq !== this.liveReqSeq) return;
+				this.liveRefreshError = e.message || String(e);
+				if (showErr) this.notifyError(_('Failed to refresh status'), e);
+			}, this));
+		},
 
 	trendPointByteRates: function (x) {
 		var tt = String(this.selectedTrendType || '').trim();
@@ -741,10 +760,11 @@ return view.extend({
 		return { ts_ms: asNum(x.ts_ms), up: up, down: down, raw: x };
 	},
 
-	refreshTrend: function (showErr) {
-		if (!this.selectedIface) {
-			this.trend = [];
-			this.trendRaw = [];
+		refreshTrend: function (showErr) {
+			var reqSeq = ++this.trendReqSeq;
+			if (!this.selectedIface) {
+				this.trend = [];
+				this.trendRaw = [];
 			this.drawTrendChart();
 			if (this.el.trendCount) this.el.trendCount.textContent = formatEntriesPillText(0);
 			return Promise.resolve();
@@ -753,11 +773,12 @@ return view.extend({
 			return Promise.resolve();
 		var mac = this.selectedTrendMac || '';
 		var tt = this.selectedTrendType === 'all' ? '' : (this.selectedTrendType || '');
-		return callGetTrend(this.selectedIface, mac, tt, '')
-			.then(function (r) { return unwrapData(r, []); })
-			.then(L.bind(function (list) {
-				var arr = Array.isArray(list) ? list : [];
-				this.trendRaw = arr;
+			return callGetTrend(this.selectedIface, mac, tt, '')
+				.then(function (r) { return unwrapData(r, []); })
+				.then(L.bind(function (list) {
+					if (reqSeq !== this.trendReqSeq) return;
+					var arr = Array.isArray(list) ? list : [];
+					this.trendRaw = arr;
 				var mapped = arr.map(L.bind(function (x) {
 					return this.trendPointByteRates(x);
 				}, this));
@@ -773,10 +794,11 @@ return view.extend({
 					this.el.trendCount.textContent = formatEntriesPillText(this.trend.length);
 				}
 				this.drawTrendChart();
-			}, this)).catch(L.bind(function (e) {
-			this.trend = [];
-			this.trendRaw = [];
-			this.drawTrendChart();
+				}, this)).catch(L.bind(function (e) {
+				if (reqSeq !== this.trendReqSeq) return;
+				this.trend = [];
+				this.trendRaw = [];
+				this.drawTrendChart();
 			if (this.el.trendCount) this.el.trendCount.textContent = formatEntriesPillText(0);
 			if (showErr) this.notifyError(_('Failed to refresh trend'), e);
 		}, this));
@@ -887,47 +909,61 @@ return view.extend({
 		if (!sel) return;
 		var old = this.devicesFilterIface;
 		var seen = {};
-		var opts = [ E('option', { 'value': '' }, [ _('All interfaces') ]) ];
+		var rows = [ { value: '', label: _('All interfaces') } ];
 		for (var i = 0; i < this.overview.length; i++) {
 			var n = this.overview[i].ifname;
 			if (n && !seen[n]) {
 				seen[n] = 1;
-				opts.push(E('option', { 'value': n }, [ n ]));
+				rows.push({ value: n, label: n });
 			}
 		}
 		for (var j = 0; j < this.devices.length; j++) {
 			var li = deviceIfaceName(this.devices[j]);
 			if (li && !seen[li]) {
 				seen[li] = 1;
-				opts.push(E('option', { 'value': li }, [ li ]));
+				rows.push({ value: li, label: li });
 			}
 		}
-		dom.content(sel, opts);
+		if (!hasSameSelectOptions(sel, rows)) {
+			var nodes = [];
+			for (var k = 0; k < rows.length; k++) {
+				nodes.push(E('option', { 'value': rows[k].value }, [ rows[k].label ]));
+			}
+			dom.content(sel, nodes);
+		}
 		if (old) sel.value = old;
-		if (sel.value !== old) this.devicesFilterIface = sel.value || '';
+		this.devicesFilterIface = sel.value || '';
 	},
 
 	renderIfaceOptions: function () {
 		var sel = this.el.ifaceSelect;
 		if (!sel) return;
 		var old = this.selectedIface;
-		dom.content(sel, []);
+		var rows = [];
 		for (var i = 0; i < this.overview.length; i++) {
 			var o = this.overview[i];
-			sel.appendChild(E('option', { 'value': o.ifname }, [ o.ifname + ' (' + (o.zone || '—') + ')' ]));
+			rows.push({
+				value: o.ifname,
+				label: o.ifname + ' (' + (o.zone || '—') + ')'
+			});
+		}
+		if (!hasSameSelectOptions(sel, rows)) {
+			var nodes = [];
+			for (var j = 0; j < rows.length; j++) {
+				nodes.push(E('option', { 'value': rows[j].value }, [ rows[j].label ]));
+			}
+			dom.content(sel, nodes);
 		}
 		if (old) sel.value = old;
-		if (!sel.value && this.overview.length) {
-			sel.value = this.overview[0].ifname;
-			this.selectedIface = sel.value;
-		}
+		if (!sel.value && rows.length) sel.value = rows[0].value;
+		this.selectedIface = sel.value || '';
 	},
 
 	renderTrendDeviceOptions: function () {
 		var sel = this.el.trendDeviceSelect;
 		if (!sel) return;
 		var old = this.selectedTrendMac;
-		dom.content(sel, [ E('option', { 'value': '' }, [ _('All Devices') ]) ]);
+		var rows = [ { value: '', label: _('All Devices') } ];
 		var iface = this.selectedIface;
 		var list = this.devices.filter(function (d) {
 			return !iface || deviceIfaceName(d) === iface;
@@ -938,12 +974,20 @@ return view.extend({
 		for (var i = 0; i < list.length; i++) {
 			var d = list[i];
 			var label = (d.hostname || '—') + ' | ' + d.mac;
-			sel.appendChild(E('option', { 'value': d.mac }, [ label ]));
+			rows.push({
+				value: d.mac,
+				label: label
+			});
+		}
+		if (!hasSameSelectOptions(sel, rows)) {
+			var nodes = [];
+			for (var j = 0; j < rows.length; j++) {
+				nodes.push(E('option', { 'value': rows[j].value }, [ rows[j].label ]));
+			}
+			dom.content(sel, nodes);
 		}
 		sel.value = old;
-		if (sel.value !== old) {
-			this.selectedTrendMac = sel.value || '';
-		}
+		this.selectedTrendMac = sel.value || '';
 	},
 
 	renderStatsIfaceOptions: function () {
@@ -3061,12 +3105,12 @@ return view.extend({
 		this.applyRankPreset('30days');
 		this.applyStatsPreset('30days');
 
-		poll.add(L.bind(function () {
-			this.setThemeClass();
-			return Promise.all([
-				this.refreshLive(false),
-				this.refreshRateData(false)
-			]);
+			poll.add(L.bind(function () {
+				this.setThemeClass();
+				return Promise.all([
+					this.refreshLive(false),
+					this.refreshRateData(false)
+				]);
 		}, this), 1);
 
 		return viewNode;
