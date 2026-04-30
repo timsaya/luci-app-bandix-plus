@@ -140,8 +140,6 @@ msgstr "开始日期"
 msgid "End Date"
 msgstr "结束日期"
 
-msgid "Traffic type"
-msgstr "流量类型"
 
 msgid "Reset"
 msgstr "复位"
@@ -193,3 +191,99 @@ msgstr "总下载"
 
 msgid "Total"
 msgstr "全部"
+
+msgid "No data"
+msgstr "暂无数据"
+
+msgid "Interface Overview"
+msgstr "接口概览"
+
+msgid "Traffic Timeline"
+msgstr "流量时间线"
+
+msgid "Device List"
+msgstr "设备列表"
+
+msgid "All interfaces already have rules"
+msgstr "所有接口都已有规则"
+
+msgid "Rule already exists for iface"
+msgstr "该接口已存在规则"
+
+msgid "Total Upload Usage"
+msgstr "总下载量"
+
+msgid "Total Download Usage"
+msgstr "总上传量"
+
+msgid "Total Usage"
+msgstr "全部"
+
+msgid "Set iface limit"
+msgstr "接口限速"
+
+msgid "Tip: 0 means unlimited"
+msgstr "提示: 0 代表无限制"
+
+msgid "Trend samples"
+msgstr "实时流量趋势"
+
+msgid "Device MAC"
+msgstr "选择设备"
+
+msgid "Traffic Type"
+msgstr "协议类型"
+
+
+msgid "Guest control"
+msgstr "来宾控制"
+
+
+msgid "Guest rules"
+msgstr "来宾规则"
+
+
+msgid "IPv4 Upload"
+msgstr "Ipv4 上传"
+
+msgid "IPv4 Download"
+msgstr "IPv4 下载"
+
+
+msgid "IPv6 Upload"
+msgstr "IPv4 上传"
+
+
+msgid "IPv6 Download"
+msgstr "IPv4 下载"
+
+
+msgid "Whitelist"
+msgstr "白名单"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Guest rule"
+msgstr "来宾规则"
+
+msgid "Schedule rules"
+msgstr "定时限速规则"
+
+
+msgid "Set hostname for this device."
+msgstr "设置主机名"
+
+
+msgid "Scheduled rate limits"
+msgstr "限速规则"
+
+
+msgid "No scheduled rules yet; click Add rule."
+msgstr "没有规则，点击添加"
+
+msgid "Add rule"
+msgstr "添加规则"
+
+msgid "Select MAC"
+msgstr "选择设备"

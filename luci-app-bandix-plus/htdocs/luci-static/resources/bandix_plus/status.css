@@ -800,6 +800,55 @@
   border: 1px solid var(--bplus-border);
 }
 
+.bplus-page .bplus-overview-head-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bplus-page .bplus-rate-unit-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 3px;
+  border-radius: 999px;
+  border: 1px solid var(--bplus-border);
+  background: var(--bplus-card);
+}
+
+.bplus-page .bplus-unit-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--bplus-sub);
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  flex: 0 0 26px;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 0.62rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.bplus-page .bplus-unit-btn:hover {
+  color: var(--bplus-text);
+}
+
+.bplus-page .bplus-unit-btn.is-active {
+  color: #fff;
+  background: var(--bplus-accent);
+  border-color: var(--bplus-accent);
+}
+
 .bplus-page .bplus-inline-form {
   display: flex;
   flex-wrap: wrap;
@@ -2067,6 +2116,26 @@
   font-size: 0.8125rem;
   font-weight: 600;
   opacity: 0.72;
+}
+
+.bplus-schedule-form .bplus-rate-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.bplus-schedule-form .bplus-rate-input-row .cbi-input-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 130px;
+}
+
+.bplus-schedule-form .bplus-rate-unit-select {
+  width: 84px;
+  min-width: 84px;
+  max-width: 84px;
+  flex: 0 0 auto;
 }
 
 @media (max-width: 520px) {

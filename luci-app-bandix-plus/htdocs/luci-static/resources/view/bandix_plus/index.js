@@ -128,7 +128,13 @@ function formatBytes(n) {
 	return (i === 0 ? String(Math.round(n)) : n.toFixed(2)) + ' ' + u[i];
 }
 
-function formatRate(n) {
+var BPLUS_RATE_UNIT_MODE = 'byte';
+
+function setRateUnitMode(mode) {
+	BPLUS_RATE_UNIT_MODE = mode === 'bit' ? 'bit' : 'byte';
+}
+
+function formatByteRate(n) {
 	n = asNum(n);
 	if (n <= 0) return '0 B/s';
 	var u = [ 'B/s', 'KB/s', 'MB/s', 'GB/s', 'TB/s' ];
@@ -140,14 +146,90 @@ function formatRate(n) {
 	return (i === 0 ? String(Math.round(n)) : n.toFixed(2)) + ' ' + u[i];
 }
 
-/** CounterQuad *_bps → byte/s for display (align bandix-plus-web). */
+function formatByteRateDecimal(n) {
+	n = asNum(n);
+	if (n <= 0) return '0 B/s';
+	var u = [ 'B/s', 'KB/s', 'MB/s', 'GB/s', 'TB/s' ];
+	var i = 0;
+	while (n >= 1000 && i < u.length - 1) {
+		n /= 1000;
+		i++;
+	}
+	return (i === 0 ? String(Math.round(n)) : n.toFixed(2)) + ' ' + u[i];
+}
+
+function formatBitRate(n) {
+	n = asNum(n);
+	if (n <= 0) return '0 bps';
+	var u = [ 'bps', 'Kbps', 'Mbps', 'Gbps', 'Tbps' ];
+	var i = 0;
+	while (n >= 1000 && i < u.length - 1) {
+		n /= 1000;
+		i++;
+	}
+	return (i === 0 ? String(Math.round(n)) : n.toFixed(2)) + ' ' + u[i];
+}
+
+/** Input is byte/s, output follows global unit mode. */
+function formatRate(n) {
+	var bytesPerSec = asNum(n);
+	if (BPLUS_RATE_UNIT_MODE === 'bit')
+		return formatBitRate(bytesPerSec * 8);
+	return formatByteRate(bytesPerSec);
+}
+
+/** Input is bps, output follows global unit mode. */
 function formatBpsAsByteRate(bps) {
-	return formatRate(asNum(bps) / 8);
+	var bitsPerSec = asNum(bps);
+	if (BPLUS_RATE_UNIT_MODE === 'bit')
+		return formatBitRate(bitsPerSec);
+	return formatByteRate(bitsPerSec / 8);
 }
 
 function formatLimitKbpsValue(v) {
 	var n = asNum(v);
 	return n > 0 ? String(Math.round(n)) : _('Unlimited');
+}
+
+/** Input is kbps limit, output follows global unit mode. */
+function formatLimitKbpsRate(v) {
+	var n = asNum(v);
+	if (n <= 0) return _('Unlimited');
+	if (BPLUS_RATE_UNIT_MODE === 'bit')
+		return formatBitRate(n * 1000);
+	return formatByteRateDecimal((n * 1000) / 8);
+}
+
+function getRateLimitUnitChoices(mode) {
+	if (mode === 'bit') {
+		return [
+			{ key: 'k', label: 'Kbps', kbps_factor: 1 },
+			{ key: 'm', label: 'Mbps', kbps_factor: 1000 },
+			{ key: 'g', label: 'Gbps', kbps_factor: 1000000 }
+		];
+	}
+	return [
+		{ key: 'k', label: 'KB/s', kbps_factor: 8 },
+		{ key: 'm', label: 'MB/s', kbps_factor: 8000 },
+		{ key: 'g', label: 'GB/s', kbps_factor: 8000000 }
+	];
+}
+
+function pickRateLimitUnitChoice(mode, key) {
+	var want = String(key || 'm').toLowerCase();
+	var list = getRateLimitUnitChoices(mode);
+	for (var i = 0; i < list.length; i++) {
+		if (list[i].key === want)
+			return list[i];
+	}
+	return list[1] || list[0];
+}
+
+function formatRateLimitInputNumber(n) {
+	var v = asNum(n);
+	if (!isFinite(v) || v <= 0) return '0';
+	var rounded = Math.round(v * 100) / 100;
+	return String(rounded);
 }
 
 /** 设备 last_seen_ms（Unix 毫秒）→ 本地时间字符串；无效为 — */
@@ -315,10 +397,9 @@ function formatScheduleDayLabels(days) {
 /** Scheduled rule kbps limits: IPv4/IPv6 × download/upload (same semantics as form). */
 function scheduleRuleLimitsEl(r) {
 	var d4 = r.down_v4_kbps || 0, d6 = r.down_v6_kbps || 0, u4 = r.up_v4_kbps || 0, u6 = r.up_v6_kbps || 0;
-	var u = ' kbps';
 	var line = function (fam, dn, up) {
 		return E('div', { 'class': 'bplus-schedule-limit-line' }, [
-			fam + ': ' + _('Download') + ' ' + dn + u + ', ' + _('Upload') + ' ' + up + u
+			fam + ': ' + _('Download') + ' ' + formatLimitKbpsRate(dn) + ', ' + _('Upload') + ' ' + formatLimitKbpsRate(up)
 		]);
 	};
 	return E('div', { 'class': 'bplus-schedule-rule-limits bplus-schedule-rule-limits--detail' }, [
@@ -438,7 +519,7 @@ function ensureCss() {
 			'id': 'bplus-status-css',
 			'rel': 'stylesheet',
 			'type': 'text/css',
-			'href': L.resource('bandix_plus/status.css', '?v=44')
+			'href': L.resource('bandix_plus/status.css', '?v=46')
 		}));
 	}
 	ensureLayoutCss();
@@ -460,6 +541,8 @@ return view.extend({
 	initState: function (load) {
 		this.version = load && load[1] ? load[1] : {};
 		this.period = localStorage.getItem('bplus_period') || 'all';
+		this.rateUnitMode = localStorage.getItem('bplus_rate_unit') === 'bit' ? 'bit' : 'byte';
+		setRateUnitMode(this.rateUnitMode);
 		this.selectedIface = '';
 		this.selectedTrendMac = '';
 		this.selectedTrendType = 'all';
@@ -494,6 +577,7 @@ return view.extend({
 		};
 		this.ifaceLimitEditingIface = '';
 		this.guestRuleEditingIface = '';
+		this.guestRuleModalMode = 'add';
 		this.guestRuleWhitelist = [];
 		this.scheduleDayButtonList = [];
 		this.liveReqSeq = 0;
@@ -504,6 +588,140 @@ return view.extend({
 		var m = getThemeMode();
 		this.root.classList.remove('theme-light', 'theme-dark');
 		this.root.classList.add('theme-' + m);
+	},
+
+	setRateUnitMode: function (mode, persist) {
+		var prev = this.rateUnitMode === 'bit' ? 'bit' : 'byte';
+		var next = mode === 'bit' ? 'bit' : 'byte';
+		if (prev !== next)
+			this.updateModalRateInputsForModeChange(prev, next);
+		this.rateUnitMode = next;
+		setRateUnitMode(next);
+		if (persist !== false) localStorage.setItem('bplus_rate_unit', next);
+		if (this.el.rateUnitBtnByte)
+			this.el.rateUnitBtnByte.className = 'bplus-unit-btn' + (next === 'byte' ? ' is-active' : '');
+		if (this.el.rateUnitBtnBit)
+			this.el.rateUnitBtnBit.className = 'bplus-unit-btn' + (next === 'bit' ? ' is-active' : '');
+		this.syncRateLimitUnitControls(next);
+	},
+
+	populateRateLimitUnitSelect: function (sel, mode, preferredKey) {
+		if (!sel) return;
+		var list = getRateLimitUnitChoices(mode);
+		var keep = String(preferredKey || sel.value || 'm').toLowerCase();
+		dom.content(sel, []);
+		for (var i = 0; i < list.length; i++)
+			sel.appendChild(E('option', { 'value': list[i].key }, [ list[i].label ]));
+		sel.value = keep;
+		if (sel.value !== keep)
+			sel.value = 'm';
+		if (!sel.value && list.length)
+			sel.value = list[0].key;
+		sel.setAttribute('data-prev-unit', sel.value || 'm');
+	},
+
+	rateLimitInputToKbps: function (value, unitKey, mode) {
+		var n = asNum(value);
+		if (!isFinite(n) || n <= 0) return 0;
+		var ch = pickRateLimitUnitChoice(mode, unitKey);
+		return Math.max(0, Math.round(n * asNum(ch.kbps_factor)));
+	},
+
+	kbpsToRateLimitInput: function (kbps, mode, preferredUnitKey) {
+		var total = asNum(kbps);
+		if (!isFinite(total) || total <= 0)
+			return { value: '0', unitKey: String(preferredUnitKey || 'm').toLowerCase() };
+		var selected = pickRateLimitUnitChoice(mode, preferredUnitKey);
+		if (!preferredUnitKey) {
+			var choices = getRateLimitUnitChoices(mode);
+			for (var i = choices.length - 1; i >= 0; i--) {
+				var f = asNum(choices[i].kbps_factor);
+				if (f > 0 && total / f >= 1) {
+					selected = choices[i];
+					break;
+				}
+			}
+		}
+		var factor = Math.max(0.000001, asNum(selected.kbps_factor));
+		return {
+			value: formatRateLimitInputNumber(total / factor),
+			unitKey: selected.key
+		};
+	},
+
+	setRateLimitFieldFromKbps: function (kbps, inputEl, unitSel, preferredUnitKey) {
+		if (!inputEl || !unitSel) return;
+		var mode = this.rateUnitMode === 'bit' ? 'bit' : 'byte';
+		var selectedKey = String(preferredUnitKey || unitSel.value || 'm').toLowerCase();
+		if (!preferredUnitKey)
+			selectedKey = this.kbpsToRateLimitInput(kbps, mode).unitKey;
+		this.populateRateLimitUnitSelect(unitSel, mode, selectedKey);
+		var valueInfo = this.kbpsToRateLimitInput(kbps, mode, unitSel.value || selectedKey);
+		inputEl.value = valueInfo.value;
+	},
+
+	getRateLimitFieldAsKbps: function (inputEl, unitSel) {
+		var mode = this.rateUnitMode === 'bit' ? 'bit' : 'byte';
+		var key = unitSel ? unitSel.value : 'm';
+		return this.rateLimitInputToKbps(inputEl ? inputEl.value : 0, key, mode);
+	},
+
+	getRateLimitModalFields: function () {
+		var fields = [];
+		if (!this.el) return fields;
+		var addField = function (inputEl, unitSel) {
+			if (inputEl && unitSel) fields.push({ input: inputEl, unit: unitSel });
+		};
+		addField(this.el.schD4, this.el.schD4Unit);
+		addField(this.el.schD6, this.el.schD6Unit);
+		addField(this.el.schU4, this.el.schU4Unit);
+		addField(this.el.schU6, this.el.schU6Unit);
+		addField(this.el.ifaceLimitD4Modal, this.el.ifaceLimitD4UnitModal);
+		addField(this.el.ifaceLimitD6Modal, this.el.ifaceLimitD6UnitModal);
+		addField(this.el.ifaceLimitU4Modal, this.el.ifaceLimitU4UnitModal);
+		addField(this.el.ifaceLimitU6Modal, this.el.ifaceLimitU6UnitModal);
+		addField(this.el.guestRuleD4, this.el.guestRuleD4Unit);
+		addField(this.el.guestRuleD6, this.el.guestRuleD6Unit);
+		addField(this.el.guestRuleU4, this.el.guestRuleU4Unit);
+		addField(this.el.guestRuleU6, this.el.guestRuleU6Unit);
+		return fields;
+	},
+
+	updateModalRateInputsForModeChange: function (prevMode, nextMode) {
+		var fields = this.getRateLimitModalFields();
+		for (var i = 0; i < fields.length; i++) {
+			var field = fields[i];
+			var keepKey = String((field.unit && field.unit.value) || 'm').toLowerCase();
+			this.populateRateLimitUnitSelect(field.unit, nextMode, keepKey);
+		}
+	},
+
+	syncRateLimitUnitControls: function (mode) {
+		var next = mode === 'bit' ? 'bit' : 'byte';
+		var fields = this.getRateLimitModalFields();
+		for (var i = 0; i < fields.length; i++) {
+			var field = fields[i];
+			this.populateRateLimitUnitSelect(field.unit, next, field.unit && field.unit.value);
+		}
+	},
+
+	onRateLimitUnitSelectChanged: function (sel, inputEl) {
+		if (!sel || !inputEl) return;
+		var newKey = String(sel.value || 'm').toLowerCase();
+		sel.setAttribute('data-prev-unit', newKey);
+	},
+
+	refreshRateUnitDisplays: function () {
+		this.renderOverviewGrid();
+		this.renderIfaceLimitTable();
+		this.renderGuestControlTable();
+		if (this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.classList.contains('show'))
+			this.renderScheduleHubRulesList();
+		if (!this.isScheduleHubUiOpen())
+			this.renderDevicesTable();
+		this.drawTrendChart();
+		this.drawStatsChart();
+		this.updateStatsHistogramSummary();
 	},
 
 	applyPeriod: function (v) {
@@ -778,7 +996,7 @@ return view.extend({
 				this.syncRateFormIfaceOptions();
 			}
 			if (this.el.overviewCount) {
-				this.el.overviewCount.textContent = String(this.overview.length) + ' 条';
+				this.el.overviewCount.textContent = String(this.overview.length) + ' ' + _('entries');
 			}
 			return this.refreshTrend(false);
 			}, this)).catch(L.bind(function (e) {
@@ -922,7 +1140,7 @@ return view.extend({
 			return;
 		}
 		if (!this.overview.length) {
-			grid.appendChild(E('div', { 'class': 'overview-state overview-state--empty' }, [ '暂无数据' ]));
+			grid.appendChild(E('div', { 'class': 'overview-state overview-state--empty' }, [ _('No data') ]));
 			return;
 		}
 		for (var i = 0; i < this.overview.length; i++) {
@@ -965,15 +1183,15 @@ return view.extend({
 				E('div', { 'class': 'overview-limit-line' }, [
 					E('span', { 'class': 'overview-limit-k' }, [ _('Upload') ]),
 					E('span', { 'class': 'overview-limit-v' }, [
-						'IPv4 ' + formatLimitKbpsValue(ifaceLimit ? ifaceLimit.up_v4_kbps : 0) +
-						' · IPv6 ' + formatLimitKbpsValue(ifaceLimit ? ifaceLimit.up_v6_kbps : 0)
+						'IPv4 ' + formatLimitKbpsRate(ifaceLimit ? ifaceLimit.up_v4_kbps : 0) +
+						' · IPv6 ' + formatLimitKbpsRate(ifaceLimit ? ifaceLimit.up_v6_kbps : 0)
 					])
 				]),
 				E('div', { 'class': 'overview-limit-line' }, [
 					E('span', { 'class': 'overview-limit-k' }, [ _('Download') ]),
 					E('span', { 'class': 'overview-limit-v' }, [
-						'IPv4 ' + formatLimitKbpsValue(ifaceLimit ? ifaceLimit.down_v4_kbps : 0) +
-						' · IPv6 ' + formatLimitKbpsValue(ifaceLimit ? ifaceLimit.down_v6_kbps : 0)
+						'IPv4 ' + formatLimitKbpsRate(ifaceLimit ? ifaceLimit.down_v4_kbps : 0) +
+						' · IPv6 ' + formatLimitKbpsRate(ifaceLimit ? ifaceLimit.down_v6_kbps : 0)
 					])
 				])
 			]));
@@ -1632,10 +1850,10 @@ return view.extend({
 			(function (it) {
 				self.el.ifaceLimitBody.appendChild(E('tr', {}, [
 					E('td', {}, [ String(it.iface || '—') ]),
-					E('td', {}, [ String(it.down_v4_kbps || 0) ]),
-					E('td', {}, [ String(it.down_v6_kbps || 0) ]),
-					E('td', {}, [ String(it.up_v4_kbps || 0) ]),
-					E('td', {}, [ String(it.up_v6_kbps || 0) ]),
+					E('td', {}, [ formatLimitKbpsRate(it.down_v4_kbps || 0) ]),
+					E('td', {}, [ formatLimitKbpsRate(it.down_v6_kbps || 0) ]),
+					E('td', {}, [ formatLimitKbpsRate(it.up_v4_kbps || 0) ]),
+					E('td', {}, [ formatLimitKbpsRate(it.up_v6_kbps || 0) ]),
 					E('td', {}, [ E('button', {
 						'class': 'btn cbi-button cbi-button-remove',
 						'click': function () { self.deleteIfaceLimit(it.iface); }
@@ -1672,18 +1890,7 @@ return view.extend({
 			var w = whitelist[i] || {};
 			var wiface = String(w.iface || '').trim();
 			if (!wiface) continue;
-			if (!rowsByIface[wiface]) {
-				rowsByIface[wiface] = {
-					iface: wiface,
-					up_v4_kbps: 0,
-					down_v4_kbps: 0,
-					up_v6_kbps: 0,
-					down_v6_kbps: 0,
-					enabled: true,
-					whitelist_count: 0
-				};
-				ifaces.push(wiface);
-			}
+			if (!rowsByIface[wiface]) continue;
 			rowsByIface[wiface].whitelist_count++;
 		}
 
@@ -1700,10 +1907,10 @@ return view.extend({
 			(function (row) {
 				self.el.guestRuleBody.appendChild(E('tr', {}, [
 					E('td', {}, [ row.iface ]),
-					E('td', {}, [ formatLimitKbpsValue(row.up_v4_kbps) ]),
-					E('td', {}, [ formatLimitKbpsValue(row.down_v4_kbps) ]),
-					E('td', {}, [ formatLimitKbpsValue(row.up_v6_kbps) ]),
-					E('td', {}, [ formatLimitKbpsValue(row.down_v6_kbps) ]),
+					E('td', {}, [ formatLimitKbpsRate(row.up_v4_kbps) ]),
+					E('td', {}, [ formatLimitKbpsRate(row.down_v4_kbps) ]),
+					E('td', {}, [ formatLimitKbpsRate(row.up_v6_kbps) ]),
+					E('td', {}, [ formatLimitKbpsRate(row.down_v6_kbps) ]),
 					E('td', {}, [ String(asNum(row.whitelist_count)) ]),
 					E('td', {}, [
 						E('span', { 'class': 'bplus-guest-enabled-pill ' + (row.enabled ? 'is-enabled' : 'is-disabled') }, [
@@ -1715,7 +1922,13 @@ return view.extend({
 							'class': 'btn cbi-button cbi-button-edit',
 							'type': 'button',
 							'click': function () { self.openGuestRuleModal(row.iface); }
-						}, [ _('Edit') ])
+						}, [ _('Edit') ]),
+						' ',
+						E('button', {
+							'class': 'btn cbi-button cbi-button-remove',
+							'type': 'button',
+							'click': function () { self.deleteGuestDefault(row.iface); }
+						}, [ _('Delete') ])
 					])
 				]));
 			})(rowsByIface[ifaces[i]]);
@@ -1767,10 +1980,27 @@ return view.extend({
 		return out;
 	},
 
+	getGuestDefaultIfaceSet: function () {
+		var set = {};
+		var list = this.rate.guestDefaults || [];
+		for (var i = 0; i < list.length; i++) {
+			var iface = String((list[i] || {}).iface || '').trim();
+			if (iface) set[iface] = 1;
+		}
+		return set;
+	},
+
 	syncGuestRuleIfaceOptions: function () {
 		if (!this.el.guestRuleIface) return;
 		var selected = String(this.el.guestRuleIface.value || '').trim();
-		var ifaces = this.getGuestIfaceCandidates();
+		var ifaces;
+		if (this.guestRuleModalMode === 'edit' && this.guestRuleEditingIface) {
+			ifaces = [ this.guestRuleEditingIface ];
+		} else {
+			var all = this.getGuestIfaceCandidates();
+			var used = this.getGuestDefaultIfaceSet();
+			ifaces = all.filter(function (iface) { return !used[iface]; });
+		}
 		var rows = ifaces.map(function (x) { return { value: x, label: x }; });
 		if (!hasSameSelectOptions(this.el.guestRuleIface, rows)) {
 			if (document.activeElement === this.el.guestRuleIface)
@@ -1918,10 +2148,10 @@ return view.extend({
 		var target = String(iface || '').trim();
 		var current = this.findGuestDefaultByIface(target);
 		var whitelist = this.findGuestWhitelistByIface(target);
-		this.el.guestRuleD4.value = String(current ? asNum(current.down_v4_kbps) : 0);
-		this.el.guestRuleD6.value = String(current ? asNum(current.down_v6_kbps) : 0);
-		this.el.guestRuleU4.value = String(current ? asNum(current.up_v4_kbps) : 0);
-		this.el.guestRuleU6.value = String(current ? asNum(current.up_v6_kbps) : 0);
+		this.setRateLimitFieldFromKbps(current ? asNum(current.down_v4_kbps) : 0, this.el.guestRuleD4, this.el.guestRuleD4Unit);
+		this.setRateLimitFieldFromKbps(current ? asNum(current.down_v6_kbps) : 0, this.el.guestRuleD6, this.el.guestRuleD6Unit);
+		this.setRateLimitFieldFromKbps(current ? asNum(current.up_v4_kbps) : 0, this.el.guestRuleU4, this.el.guestRuleU4Unit);
+		this.setRateLimitFieldFromKbps(current ? asNum(current.up_v6_kbps) : 0, this.el.guestRuleU6, this.el.guestRuleU6Unit);
 		this.el.guestRuleEnabled.checked = current && current.enabled != null ? !!current.enabled : true;
 		this.guestRuleEditingIface = target;
 		this.setGuestRuleWhitelist(whitelist.map(function (it) { return String(it.mac || ''); }));
@@ -1936,19 +2166,23 @@ return view.extend({
 	hideGuestRuleModal: function () {
 		if (this.el.guestRuleOverlay)
 			this.el.guestRuleOverlay.classList.remove('show');
+		this.guestRuleModalMode = 'add';
 		this.guestRuleEditingIface = '';
 		this.guestRuleWhitelist = [];
 	},
 
 	openGuestRuleModal: function (iface) {
-		this.syncGuestRuleIfaceOptions();
 		var target = String(iface || '').trim();
+		this.guestRuleModalMode = target ? 'edit' : 'add';
+		this.guestRuleEditingIface = target || '';
+		this.syncGuestRuleIfaceOptions();
 		if (!target && this.el.guestRuleIface)
 			target = String(this.el.guestRuleIface.value || '').trim();
 		if (!target) {
-			this.notifyError(_('Iface is required'), null);
+			this.notifyError(_('All interfaces already have rules'), null);
 			return;
 		}
+		this.el.guestRuleIface.disabled = this.guestRuleModalMode === 'edit';
 		this.el.guestRuleIface.value = target;
 		if (this.el.guestRuleModalTitle)
 			this.el.guestRuleModalTitle.textContent = _('Guest rule') + ': ' + target;
@@ -1978,12 +2212,17 @@ return view.extend({
 			this.notifyError(_('Iface is required'), null);
 			return;
 		}
+		var existed = this.findGuestDefaultByIface(iface);
+		if (existed && !(this.guestRuleModalMode === 'edit' && this.guestRuleEditingIface === iface)) {
+			this.notifyError(_('Rule already exists for iface'), null);
+			return;
+		}
 		var payload = {
 			iface: iface,
-			down_v4_kbps: asNum(this.el.guestRuleD4.value),
-			down_v6_kbps: asNum(this.el.guestRuleD6.value),
-			up_v4_kbps: asNum(this.el.guestRuleU4.value),
-			up_v6_kbps: asNum(this.el.guestRuleU6.value)
+			down_v4_kbps: this.getRateLimitFieldAsKbps(this.el.guestRuleD4, this.el.guestRuleD4Unit),
+			down_v6_kbps: this.getRateLimitFieldAsKbps(this.el.guestRuleD6, this.el.guestRuleD6Unit),
+			up_v4_kbps: this.getRateLimitFieldAsKbps(this.el.guestRuleU4, this.el.guestRuleU4Unit),
+			up_v6_kbps: this.getRateLimitFieldAsKbps(this.el.guestRuleU6, this.el.guestRuleU6Unit)
 		};
 		var enabledPayload = {
 			iface: iface,
@@ -2064,10 +2303,10 @@ return view.extend({
 		if (this.el.ifaceLimitModalTitle)
 			this.el.ifaceLimitModalTitle.textContent = _('Set iface limit') + ': ' + ifname;
 		this.el.ifaceLimitIfaceReadonly.value = ifname;
-		this.el.ifaceLimitD4Modal.value = String(cur ? asNum(cur.down_v4_kbps) : 0);
-		this.el.ifaceLimitD6Modal.value = String(cur ? asNum(cur.down_v6_kbps) : 0);
-		this.el.ifaceLimitU4Modal.value = String(cur ? asNum(cur.up_v4_kbps) : 0);
-		this.el.ifaceLimitU6Modal.value = String(cur ? asNum(cur.up_v6_kbps) : 0);
+		this.setRateLimitFieldFromKbps(cur ? asNum(cur.down_v4_kbps) : 0, this.el.ifaceLimitD4Modal, this.el.ifaceLimitD4UnitModal);
+		this.setRateLimitFieldFromKbps(cur ? asNum(cur.down_v6_kbps) : 0, this.el.ifaceLimitD6Modal, this.el.ifaceLimitD6UnitModal);
+		this.setRateLimitFieldFromKbps(cur ? asNum(cur.up_v4_kbps) : 0, this.el.ifaceLimitU4Modal, this.el.ifaceLimitU4UnitModal);
+		this.setRateLimitFieldFromKbps(cur ? asNum(cur.up_v6_kbps) : 0, this.el.ifaceLimitU6Modal, this.el.ifaceLimitU6UnitModal);
 		this.showIfaceLimitModal();
 	},
 
@@ -2219,10 +2458,10 @@ return view.extend({
 			if (daySet[String(num)]) btn.classList.add('active');
 			else btn.classList.remove('active');
 		}
-		this.el.schD4.value = r.down_v4_kbps || 0;
-		this.el.schD6.value = r.down_v6_kbps || 0;
-		this.el.schU4.value = r.up_v4_kbps || 0;
-		this.el.schU6.value = r.up_v6_kbps || 0;
+		this.setRateLimitFieldFromKbps(r.down_v4_kbps || 0, this.el.schD4, this.el.schD4Unit);
+		this.setRateLimitFieldFromKbps(r.down_v6_kbps || 0, this.el.schD6, this.el.schD6Unit);
+		this.setRateLimitFieldFromKbps(r.up_v4_kbps || 0, this.el.schU4, this.el.schU4Unit);
+		this.setRateLimitFieldFromKbps(r.up_v6_kbps || 0, this.el.schU6, this.el.schU6Unit);
 		this.el.schSave.textContent = _('Update schedule');
 	},
 
@@ -2237,10 +2476,10 @@ return view.extend({
 		}
 		this.el.schStart.value = '09:00';
 		this.el.schEnd.value = '18:00';
-		this.el.schD4.value = '0';
-		this.el.schD6.value = '0';
-		this.el.schU4.value = '0';
-		this.el.schU6.value = '0';
+		this.setRateLimitFieldFromKbps(0, this.el.schD4, this.el.schD4Unit, 'm');
+		this.setRateLimitFieldFromKbps(0, this.el.schD6, this.el.schD6Unit, 'm');
+		this.setRateLimitFieldFromKbps(0, this.el.schU4, this.el.schU4Unit, 'm');
+		this.setRateLimitFieldFromKbps(0, this.el.schU6, this.el.schU6Unit, 'm');
 	},
 
 	closeScheduleHubAll: function () {
@@ -2346,10 +2585,10 @@ return view.extend({
 				end: this.el.schEnd.value || '23:59',
 				days: days
 			},
-			down_v4_kbps: asNum(this.el.schD4.value),
-			down_v6_kbps: asNum(this.el.schD6.value),
-			up_v4_kbps: asNum(this.el.schU4.value),
-			up_v6_kbps: asNum(this.el.schU6.value)
+			down_v4_kbps: this.getRateLimitFieldAsKbps(this.el.schD4, this.el.schD4Unit),
+			down_v6_kbps: this.getRateLimitFieldAsKbps(this.el.schD6, this.el.schD6Unit),
+			up_v4_kbps: this.getRateLimitFieldAsKbps(this.el.schU4, this.el.schU4Unit),
+			up_v6_kbps: this.getRateLimitFieldAsKbps(this.el.schU6, this.el.schU6Unit)
 		};
 
 		var req = this.scheduleEditingId ?
@@ -2385,10 +2624,10 @@ return view.extend({
 		ev.preventDefault();
 		var payload = {
 			iface: String(this.ifaceLimitEditingIface || '').trim(),
-			down_v4_kbps: asNum(this.el.ifaceLimitD4Modal.value),
-			down_v6_kbps: asNum(this.el.ifaceLimitD6Modal.value),
-			up_v4_kbps: asNum(this.el.ifaceLimitU4Modal.value),
-			up_v6_kbps: asNum(this.el.ifaceLimitU6Modal.value)
+			down_v4_kbps: this.getRateLimitFieldAsKbps(this.el.ifaceLimitD4Modal, this.el.ifaceLimitD4UnitModal),
+			down_v6_kbps: this.getRateLimitFieldAsKbps(this.el.ifaceLimitD6Modal, this.el.ifaceLimitD6UnitModal),
+			up_v4_kbps: this.getRateLimitFieldAsKbps(this.el.ifaceLimitU4Modal, this.el.ifaceLimitU4UnitModal),
+			up_v6_kbps: this.getRateLimitFieldAsKbps(this.el.ifaceLimitU6Modal, this.el.ifaceLimitU6UnitModal)
 		};
 		this.saveIfaceLimitPayload(payload).then(L.bind(function (ok) {
 			if (ok) this.hideIfaceLimitModal();
@@ -2856,6 +3095,17 @@ return view.extend({
 	},
 
 	bindEvents: function () {
+		this.el.rateUnitBtnByte.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.setRateUnitMode('byte', true);
+			this.refreshRateUnitDisplays();
+		}, this));
+		this.el.rateUnitBtnBit.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.setRateUnitMode('bit', true);
+			this.refreshRateUnitDisplays();
+		}, this));
+
 		this.el.periodSelect.addEventListener('change', L.bind(function () {
 			this.period = this.el.periodSelect.value;
 			localStorage.setItem('bplus_period', this.period);
@@ -2999,6 +3249,24 @@ return view.extend({
 			this.fillGuestRuleFormForIface(iface);
 			this.syncGuestRuleWhitelistMacOptions(iface);
 		}, this));
+		var bindUnitSelect = L.bind(function (sel, inputEl) {
+			if (!sel) return;
+			sel.addEventListener('change', L.bind(function () {
+				this.onRateLimitUnitSelectChanged(sel, inputEl);
+			}, this));
+		}, this);
+		bindUnitSelect(this.el.schD4Unit, this.el.schD4);
+		bindUnitSelect(this.el.schD6Unit, this.el.schD6);
+		bindUnitSelect(this.el.schU4Unit, this.el.schU4);
+		bindUnitSelect(this.el.schU6Unit, this.el.schU6);
+		bindUnitSelect(this.el.ifaceLimitD4UnitModal, this.el.ifaceLimitD4Modal);
+		bindUnitSelect(this.el.ifaceLimitD6UnitModal, this.el.ifaceLimitD6Modal);
+		bindUnitSelect(this.el.ifaceLimitU4UnitModal, this.el.ifaceLimitU4Modal);
+		bindUnitSelect(this.el.ifaceLimitU6UnitModal, this.el.ifaceLimitU6Modal);
+		bindUnitSelect(this.el.guestRuleD4Unit, this.el.guestRuleD4);
+		bindUnitSelect(this.el.guestRuleD6Unit, this.el.guestRuleD6);
+		bindUnitSelect(this.el.guestRuleU4Unit, this.el.guestRuleU4);
+		bindUnitSelect(this.el.guestRuleU6Unit, this.el.guestRuleU6);
 
 		this.el.statsQuery.addEventListener('click', L.bind(this.queryStats, this));
 		this.el.statsReset.addEventListener('click', L.bind(function () {
@@ -3061,6 +3329,12 @@ return view.extend({
 			E('option', { 'value': 'year' }, [ _('This Year') ])
 		]);
 		this.el.periodSelect.value = this.period;
+		this.el.rateUnitBtnByte = E('button', { 'type': 'button', 'class': 'bplus-unit-btn' }, [ 'B/s' ]);
+		this.el.rateUnitBtnBit = E('button', { 'type': 'button', 'class': 'bplus-unit-btn' }, [ 'bps' ]);
+		this.el.rateUnitToggle = E('div', { 'class': 'bplus-rate-unit-toggle', 'title': _('Rate unit') }, [
+			this.el.rateUnitBtnByte,
+			this.el.rateUnitBtnBit
+		]);
 
 		this.el.ifaceSelect = E('select', { 'class': 'cbi-input-select' });
 		this.el.trendDeviceSelect = E('select', { 'class': 'cbi-input-select' }, [ E('option', { 'value': '' }, [ _('All Devices') ]) ]);
@@ -3070,7 +3344,6 @@ return view.extend({
 			E('option', { 'value': 'ipv6' }, [ 'IPv6' ])
 		]);
 		this.el.overviewGrid = E('div', { 'class': 'overview-grid', 'id': 'bplus-overview-grid' });
-		this.el.overviewCount = E('span', { 'class': 'meta-pill', 'id': 'bplus-overview-count' }, [ '0 条' ]);
 
 		this.el.devicesIfaceSelect = E('select', { 'class': 'cbi-input-select' }, [ E('option', { 'value': '' }, [ _('All interfaces') ]) ]);
 		this.el.deviceModeSelect = E('select', { 'class': 'cbi-input-select' }, [
@@ -3120,10 +3393,14 @@ return view.extend({
 
 		this.el.schStart = E('input', { 'class': 'cbi-input-text bplus-schedule-time-input', 'type': 'time', 'value': '09:00' });
 		this.el.schEnd = E('input', { 'class': 'cbi-input-text bplus-schedule-time-input', 'type': 'time', 'value': '18:00' });
-		this.el.schD4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
-		this.el.schD6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
-		this.el.schU4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
-		this.el.schU6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
+		this.el.schD4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '0.01', 'value': '0' });
+		this.el.schD6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '0.01', 'value': '0' });
+		this.el.schU4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '0.01', 'value': '0' });
+		this.el.schU6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '0.01', 'value': '0' });
+		this.el.schD4Unit = E('select', { 'class': 'cbi-input-select bplus-rate-unit-select', 'aria-label': _('Rate unit') });
+		this.el.schD6Unit = E('select', { 'class': 'cbi-input-select bplus-rate-unit-select', 'aria-label': _('Rate unit') });
+		this.el.schU4Unit = E('select', { 'class': 'cbi-input-select bplus-rate-unit-select', 'aria-label': _('Rate unit') });
+		this.el.schU6Unit = E('select', { 'class': 'cbi-input-select bplus-rate-unit-select', 'aria-label': _('Rate unit') });
 		this.el.schSave = E('button', { 'class': 'btn cbi-button cbi-button-save', 'type': 'submit' }, [ _('Add') ]);
 		this.el.schCancel = E('button', { 'class': 'btn cbi-button cbi-button-reset', 'type': 'button' }, [ _('Cancel') ]);
 		this.el.scheduleRuleDismiss = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-reset bplus-modal-dismiss', 'aria-label': 'Close' }, [ '×' ]);
@@ -3146,7 +3423,6 @@ return view.extend({
 
 		this.el.scheduleForm = E('form', { 'class': 'bplus-schedule-form' }, [
 			E('div', { 'class': 'bplus-form-group' }, [
-				E('label', { 'class': 'bplus-form-label' }, [ _('Time slot') ]),
 				E('div', { 'class': 'bplus-schedule-time-row' }, [
 					this.el.schStart,
 					E('span', { 'class': 'bplus-schedule-time-sep' }, [ ' — ' ]),
@@ -3154,33 +3430,32 @@ return view.extend({
 				])
 			]),
 			E('div', { 'class': 'bplus-form-group' }, [
-				E('label', { 'class': 'bplus-form-label' }, [ _('Days of week') ]),
 				this.el.scheduleDayWrap
 			]),
 			E('div', { 'class': 'bplus-form-group bplus-schedule-limits-block' }, [
-				E('label', { 'class': 'bplus-form-label' }, [ _('Download') + ' (kbps)' ]),
+				E('label', { 'class': 'bplus-form-label' }, [ _('Download') ]),
 				E('div', { 'class': 'bplus-schedule-rate-pair' }, [
 					E('div', { 'class': 'bplus-schedule-rate-col' }, [
 						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv4' ]),
-						this.el.schD4
+						E('div', { 'class': 'bplus-rate-input-row' }, [ this.el.schD4, this.el.schD4Unit ])
 					]),
 					E('div', { 'class': 'bplus-schedule-rate-col' }, [
 						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv6' ]),
-						this.el.schD6
+						E('div', { 'class': 'bplus-rate-input-row' }, [ this.el.schD6, this.el.schD6Unit ])
 					])
 				]),
 				E('div', { 'class': 'bplus-form-hint' }, [ _('Tip: 0 means unlimited') ])
 			]),
 			E('div', { 'class': 'bplus-form-group bplus-schedule-limits-block' }, [
-				E('label', { 'class': 'bplus-form-label' }, [ _('Upload') + ' (kbps)' ]),
+				E('label', { 'class': 'bplus-form-label' }, [ _('Upload') ]),
 				E('div', { 'class': 'bplus-schedule-rate-pair' }, [
 					E('div', { 'class': 'bplus-schedule-rate-col' }, [
 						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv4' ]),
-						this.el.schU4
+						E('div', { 'class': 'bplus-rate-input-row' }, [ this.el.schU4, this.el.schU4Unit ])
 					]),
 					E('div', { 'class': 'bplus-schedule-rate-col' }, [
 						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv6' ]),
-						this.el.schU6
+						E('div', { 'class': 'bplus-rate-input-row' }, [ this.el.schU6, this.el.schU6Unit ])
 					])
 				]),
 				E('div', { 'class': 'bplus-form-hint' }, [ _('Tip: 0 means unlimited') ])
@@ -3228,13 +3503,13 @@ return view.extend({
 					E('div', { 'class': 'bplus-schedule-hostname-actions' }, [
 						this.el.scheduleHubHostnameInput,
 						this.el.scheduleHubHostnameSave
-					]),
-					E('div', { 'class': 'bplus-form-hint' }, [ _('Set hostname for this device.') ])
 				]),
-				E('div', { 'class': 'bplus-schedule-hub-toolbar' }, [
-					E('span', { 'class': 'bplus-subline' }, [ _('Scheduled rate limits (kbps)') ]),
-					this.el.scheduleHubAddRuleBtn
-				]),
+				E('div', { 'class': 'bplus-form-hint' }, [ _('Set hostname for this device.') ])
+			]),
+			E('div', { 'class': 'bplus-schedule-hub-toolbar' }, [
+				E('span', { 'class': 'bplus-subline' }, [ _('Scheduled rate limits') ]),
+				this.el.scheduleHubAddRuleBtn
+			]),
 				this.el.scheduleHubRulesList,
 				E('div', { 'class': 'bplus-modal-form-footer' }, [ this.el.scheduleHubCloseBtn ])
 			])
@@ -3272,10 +3547,14 @@ return view.extend({
 		this.el.ifaceLimitModalTitle = E('h3', { 'class': 'bplus-modal-title' }, [ _('Set iface limit') ]);
 		this.el.ifaceLimitModalDismiss = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-reset bplus-modal-dismiss', 'aria-label': 'Close' }, [ '×' ]);
 		this.el.ifaceLimitIfaceReadonly = E('input', { 'class': 'cbi-input-text', 'type': 'text', 'readonly': 'readonly' });
-		this.el.ifaceLimitD4Modal = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
-		this.el.ifaceLimitD6Modal = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
-		this.el.ifaceLimitU4Modal = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
-		this.el.ifaceLimitU6Modal = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
+		this.el.ifaceLimitD4Modal = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '0.01', 'value': '0' });
+		this.el.ifaceLimitD6Modal = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '0.01', 'value': '0' });
+		this.el.ifaceLimitU4Modal = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '0.01', 'value': '0' });
+		this.el.ifaceLimitU6Modal = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '0.01', 'value': '0' });
+		this.el.ifaceLimitD4UnitModal = E('select', { 'class': 'cbi-input-select bplus-rate-unit-select', 'aria-label': _('Rate unit') });
+		this.el.ifaceLimitD6UnitModal = E('select', { 'class': 'cbi-input-select bplus-rate-unit-select', 'aria-label': _('Rate unit') });
+		this.el.ifaceLimitU4UnitModal = E('select', { 'class': 'cbi-input-select bplus-rate-unit-select', 'aria-label': _('Rate unit') });
+		this.el.ifaceLimitU6UnitModal = E('select', { 'class': 'cbi-input-select bplus-rate-unit-select', 'aria-label': _('Rate unit') });
 		this.el.ifaceLimitModalSave = E('button', { 'class': 'btn cbi-button cbi-button-save', 'type': 'submit' }, [ _('Save') ]);
 		this.el.ifaceLimitModalCancel = E('button', { 'class': 'btn cbi-button cbi-button-reset', 'type': 'button' }, [ _('Cancel') ]);
 		this.el.ifaceLimitModalForm = E('form', { 'class': 'bplus-schedule-form bplus-iface-limit-form' }, [
@@ -3284,29 +3563,29 @@ return view.extend({
 				this.el.ifaceLimitIfaceReadonly
 			]),
 			E('div', { 'class': 'bplus-form-group bplus-schedule-limits-block' }, [
-				E('label', { 'class': 'bplus-form-label' }, [ _('Download') + ' (kbps)' ]),
+				E('label', { 'class': 'bplus-form-label' }, [ _('Download') ]),
 				E('div', { 'class': 'bplus-schedule-rate-pair' }, [
 					E('div', { 'class': 'bplus-schedule-rate-col' }, [
 						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv4' ]),
-						this.el.ifaceLimitD4Modal
+						E('div', { 'class': 'bplus-rate-input-row' }, [ this.el.ifaceLimitD4Modal, this.el.ifaceLimitD4UnitModal ])
 					]),
 					E('div', { 'class': 'bplus-schedule-rate-col' }, [
 						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv6' ]),
-						this.el.ifaceLimitD6Modal
+						E('div', { 'class': 'bplus-rate-input-row' }, [ this.el.ifaceLimitD6Modal, this.el.ifaceLimitD6UnitModal ])
 					])
 				]),
 				E('div', { 'class': 'bplus-form-hint' }, [ _('Tip: 0 means unlimited') ])
 			]),
 			E('div', { 'class': 'bplus-form-group bplus-schedule-limits-block' }, [
-				E('label', { 'class': 'bplus-form-label' }, [ _('Upload') + ' (kbps)' ]),
+				E('label', { 'class': 'bplus-form-label' }, [ _('Upload') ]),
 				E('div', { 'class': 'bplus-schedule-rate-pair' }, [
 					E('div', { 'class': 'bplus-schedule-rate-col' }, [
 						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv4' ]),
-						this.el.ifaceLimitU4Modal
+						E('div', { 'class': 'bplus-rate-input-row' }, [ this.el.ifaceLimitU4Modal, this.el.ifaceLimitU4UnitModal ])
 					]),
 					E('div', { 'class': 'bplus-schedule-rate-col' }, [
 						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv6' ]),
-						this.el.ifaceLimitU6Modal
+						E('div', { 'class': 'bplus-rate-input-row' }, [ this.el.ifaceLimitU6Modal, this.el.ifaceLimitU6UnitModal ])
 					])
 				]),
 				E('div', { 'class': 'bplus-form-hint' }, [ _('Tip: 0 means unlimited') ])
@@ -3326,10 +3605,10 @@ return view.extend({
 		}, [ this.el.ifaceLimitPanel ]);
 
 		this.el.ifLimitIface = E('input', { 'class': 'cbi-input-text', 'list': 'bplus_iflimit_iface_list', 'placeholder': 'eth0' });
-		this.el.ifLimitD4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '0' });
-		this.el.ifLimitD6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '0' });
-		this.el.ifLimitU4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '0' });
-		this.el.ifLimitU6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '0' });
+		this.el.ifLimitD4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'step': '0.01', 'value': '0' });
+		this.el.ifLimitD6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'step': '0.01', 'value': '0' });
+		this.el.ifLimitU4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'step': '0.01', 'value': '0' });
+		this.el.ifLimitU6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'step': '0.01', 'value': '0' });
 		this.el.ifaceLimitForm = E('form', { 'class': 'form-grid' }, [
 			E('label', { 'class': 'field' }, [ _('Iface'), this.el.ifLimitIface ]),
 			E('label', { 'class': 'field' }, [ 'down v4 (MB/s)', this.el.ifLimitD4 ]),
@@ -3342,10 +3621,14 @@ return view.extend({
 		]);
 
 		this.el.guestRuleIface = E('select', { 'class': 'cbi-input-select' });
-		this.el.guestRuleD4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
-		this.el.guestRuleD6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
-		this.el.guestRuleU4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
-		this.el.guestRuleU6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
+		this.el.guestRuleD4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '0.01', 'value': '0' });
+		this.el.guestRuleD6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '0.01', 'value': '0' });
+		this.el.guestRuleU4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '0.01', 'value': '0' });
+		this.el.guestRuleU6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '0.01', 'value': '0' });
+		this.el.guestRuleD4Unit = E('select', { 'class': 'cbi-input-select bplus-rate-unit-select', 'aria-label': _('Rate unit') });
+		this.el.guestRuleD6Unit = E('select', { 'class': 'cbi-input-select bplus-rate-unit-select', 'aria-label': _('Rate unit') });
+		this.el.guestRuleU4Unit = E('select', { 'class': 'cbi-input-select bplus-rate-unit-select', 'aria-label': _('Rate unit') });
+		this.el.guestRuleU6Unit = E('select', { 'class': 'cbi-input-select bplus-rate-unit-select', 'aria-label': _('Rate unit') });
 		this.el.guestRuleEnabled = E('input', { 'type': 'checkbox' });
 		this.el.guestRuleWhitelistInput = E('select', { 'class': 'cbi-input-select' });
 		this.el.guestRuleWhitelistAdd = E('button', { 'class': 'btn cbi-button cbi-button-action', 'type': 'button' }, [ _('Add') ]);
@@ -3359,29 +3642,29 @@ return view.extend({
 				this.el.guestRuleIface
 			]),
 			E('div', { 'class': 'bplus-form-group bplus-schedule-limits-block' }, [
-				E('label', { 'class': 'bplus-form-label' }, [ _('Upload') + ' (kbps)' ]),
+				E('label', { 'class': 'bplus-form-label' }, [ _('Upload') ]),
 				E('div', { 'class': 'bplus-schedule-rate-pair' }, [
 					E('div', { 'class': 'bplus-schedule-rate-col' }, [
 						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv4' ]),
-						this.el.guestRuleU4
+						E('div', { 'class': 'bplus-rate-input-row' }, [ this.el.guestRuleU4, this.el.guestRuleU4Unit ])
 					]),
 					E('div', { 'class': 'bplus-schedule-rate-col' }, [
 						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv6' ]),
-						this.el.guestRuleU6
+						E('div', { 'class': 'bplus-rate-input-row' }, [ this.el.guestRuleU6, this.el.guestRuleU6Unit ])
 					])
 				]),
 				E('div', { 'class': 'bplus-form-hint' }, [ _('Tip: 0 means unlimited') ])
 			]),
 			E('div', { 'class': 'bplus-form-group bplus-schedule-limits-block' }, [
-				E('label', { 'class': 'bplus-form-label' }, [ _('Download') + ' (kbps)' ]),
+				E('label', { 'class': 'bplus-form-label' }, [ _('Download') ]),
 				E('div', { 'class': 'bplus-schedule-rate-pair' }, [
 					E('div', { 'class': 'bplus-schedule-rate-col' }, [
 						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv4' ]),
-						this.el.guestRuleD4
+						E('div', { 'class': 'bplus-rate-input-row' }, [ this.el.guestRuleD4, this.el.guestRuleD4Unit ])
 					]),
 					E('div', { 'class': 'bplus-schedule-rate-col' }, [
 						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv6' ]),
-						this.el.guestRuleD6
+						E('div', { 'class': 'bplus-rate-input-row' }, [ this.el.guestRuleD6, this.el.guestRuleD6Unit ])
 					])
 				]),
 				E('div', { 'class': 'bplus-form-hint' }, [ _('Tip: 0 means unlimited') ])
@@ -3430,7 +3713,7 @@ return view.extend({
 						E('th', {}, [ _('IPv6 Download') ]),
 						E('th', {}, [ _('Whitelist') ]),
 						E('th', {}, [ _('Enabled') ]),
-						E('th', {}, [ _('actions') ])
+						E('th', {}, [ _('Actions') ])
 					]) ]),
 					this.el.guestRuleBody
 				])
@@ -3478,15 +3761,15 @@ return view.extend({
 		this.el.statsSummaryTotalVal = E('div', { 'class': 'traffic-increments-summary-value' }, [ '—' ]);
 		this.el.statsSummary = E('div', { 'class': 'traffic-increments-summary' }, [
 			E('div', { 'class': 'traffic-increments-summary-item' }, [
-				E('div', { 'class': 'traffic-increments-summary-label' }, [ _('Total Upload') ]),
+				E('div', { 'class': 'traffic-increments-summary-label' }, [ _('Total Upload Usage') ]),
 				this.el.statsSummaryUpVal
 			]),
 			E('div', { 'class': 'traffic-increments-summary-item' }, [
-				E('div', { 'class': 'traffic-increments-summary-label' }, [ _('Total Download') ]),
+				E('div', { 'class': 'traffic-increments-summary-label' }, [ _('Total Download Usage') ]),
 				this.el.statsSummaryDownVal
 			]),
 			E('div', { 'class': 'traffic-increments-summary-item' }, [
-				E('div', { 'class': 'traffic-increments-summary-label' }, [ _('Total') ]),
+				E('div', { 'class': 'traffic-increments-summary-label' }, [ _('Total Usage') ]),
 				this.el.statsSummaryTotalVal
 			])
 		]);
@@ -3510,8 +3793,10 @@ return view.extend({
 			E('div', { 'class': 'bplus-main' }, [
 				E('section', { 'class': 'bplus-panel' }, [
 					E('div', { 'class': 'bplus-panel-head' }, [
-						E('h2', [ '接口总览' ]),
-						this.el.overviewCount
+						E('h2', [ _('Interface Overview') ]),
+						E('div', { 'class': 'bplus-overview-head-tools' }, [
+							this.el.rateUnitToggle
+						])
 					]),
 					this.el.overviewGrid
 				]),
@@ -3538,18 +3823,18 @@ return view.extend({
 					E('div', { 'class': 'bplus-inline-form bplus-trend-controls' }, [
 						E('label', {}, [ _('Iface'), this.el.ifaceSelect ]),
 						E('label', {}, [ _('Device MAC'), this.el.trendDeviceSelect ]),
-						E('label', {}, [ 'traffic_type', this.el.trendTypeSelect ])
+						E('label', {}, [ _('Traffic Type'), this.el.trendTypeSelect ])
 					]),
 					E('div', { 'class': 'bplus-chart-wrap' }, [ this.el.trendCanvas, this.el.trendTooltip ]),
 				]),
 
 				E('section', { 'class': 'bplus-panel' }, [
 					E('div', { 'class': 'bplus-panel-head' }, [
-						E('h2', {}, [ _('Devices') ]),
+						E('h2', {}, [ _('Device List') ]),
 						this.el.devicesCount
 					]),
 					E('div', { 'class': 'bplus-inline-form' }, [
-						E('label', {}, [ _('Iface filter'), this.el.devicesIfaceSelect ]),
+						E('label', {}, [ _('Iface'), this.el.devicesIfaceSelect ]),
 						E('label', {}, [ _('Period'), this.el.periodSelect ]),
 						E('label', {}, [ _('Display mode'), this.el.deviceModeSelect ])
 					]),
@@ -3570,7 +3855,7 @@ return view.extend({
 								this.el.rankIface
 							]),
 							E('div', { 'class': 'usage-ranking-network-type-wrapper' }, [
-								E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-rank-tt' }, [ _('Traffic type') ]),
+								E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-rank-tt' }, [ _('Traffic Type') ]),
 								this.el.rankTrafficTypeSelect
 							]),
 							E('div', { 'class': 'usage-ranking-date-picker-wrapper' }, [
@@ -3606,7 +3891,7 @@ return view.extend({
 				E('section', { 'class': 'bplus-panel bplus-histogram-section' }, [
 					E('div', { 'class': 'usage-ranking-header' }, [
 						E('div', { 'class': 'bplus-panel-head', 'style': 'margin:0;flex:1;min-width:0' }, [
-							E('h2', {}, [ _('流量时间线') ])
+							E('h2', {}, [ _('Traffic Timeline') ])
 						]),
 						this.el.statsHistogramTimerange
 					]),
@@ -3617,7 +3902,7 @@ return view.extend({
 								this.el.statsIface
 							]),
 							E('div', { 'class': 'usage-ranking-network-type-wrapper' }, [
-								E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-stats-tt' }, [ _('Traffic type') ]),
+								E('label', { 'class': 'usage-ranking-network-label', 'for': 'bplus-stats-tt' }, [ _('Traffic Type') ]),
 								this.el.statsTrafficTypeSelect
 							]),
 							E('div', { 'class': 'usage-ranking-date-picker-wrapper' }, [
@@ -3664,8 +3949,7 @@ return view.extend({
 
 				E('section', { 'class': 'bplus-panel' }, [
 					E('div', { 'class': 'bplus-panel-head' }, [
-						E('h2', {}, [ _('Guest control') ]),
-						E('span', { 'class': 'meta-pill' }, [ _('Write operations') ])
+						E('h2', {}, [ _('Guest control') ])
 					]),
 					E('div', { 'class': 'policy-grid' }, [
 						E('article', { 'class': 'policy-card' }, [
@@ -3687,6 +3971,7 @@ return view.extend({
 		ensureCss();
 		this.initState(load);
 		var viewNode = this.buildView();
+		this.setRateUnitMode(this.rateUnitMode, false);
 		if (this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.parentNode !== this.root)
 			this.root.appendChild(this.el.scheduleHubOverlay);
 		if (this.el.scheduleRuleOverlay && this.el.scheduleRuleOverlay.parentNode !== this.root)
