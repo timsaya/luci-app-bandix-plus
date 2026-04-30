@@ -56,6 +56,7 @@ var callSetIfaceLimit = rpc.declare({ object: 'luci.bandix_plus', method: 'setIf
 var callDeleteIfaceLimit = rpc.declare({ object: 'luci.bandix_plus', method: 'deleteIfaceLimit', params: [ 'iface' ], expect: {} });
 var callGetGuestDefaults = rpc.declare({ object: 'luci.bandix_plus', method: 'getGuestDefaults', expect: {} });
 var callSetGuestDefault = rpc.declare({ object: 'luci.bandix_plus', method: 'setGuestDefault', params: [ 'payload' ], expect: {} });
+var callSetGuestDefaultEnabled = rpc.declare({ object: 'luci.bandix_plus', method: 'setGuestDefaultEnabled', params: [ 'payload' ], expect: {} });
 var callDeleteGuestDefault = rpc.declare({ object: 'luci.bandix_plus', method: 'deleteGuestDefault', params: [ 'iface' ], expect: {} });
 var callGetGuestWhitelist = rpc.declare({ object: 'luci.bandix_plus', method: 'getGuestWhitelist', expect: {} });
 var callAddGuestWhitelist = rpc.declare({ object: 'luci.bandix_plus', method: 'addGuestWhitelist', params: [ 'payload' ], expect: {} });
@@ -437,7 +438,7 @@ function ensureCss() {
 			'id': 'bplus-status-css',
 			'rel': 'stylesheet',
 			'type': 'text/css',
-			'href': L.resource('bandix_plus/status.css', '?v=43')
+			'href': L.resource('bandix_plus/status.css', '?v=44')
 		}));
 	}
 	ensureLayoutCss();
@@ -447,9 +448,6 @@ return view.extend({
 	load: function () {
 		return Promise.all([
 			uci.load('bandix_plus'),
-			uci.load('luci').catch(function () { return null; }),
-			uci.load('argon').catch(function () { return null; }),
-			uci.load('kucat').catch(function () { return null; }),
 			callGetVersion().then(bplusJson).catch(function () { return {}; })
 		]);
 	},
@@ -460,7 +458,7 @@ return view.extend({
 	addFooter: function () { return null; },
 
 	initState: function (load) {
-		this.version = load && load[4] ? load[4] : {};
+		this.version = load && load[1] ? load[1] : {};
 		this.period = localStorage.getItem('bplus_period') || 'all';
 		this.selectedIface = '';
 		this.selectedTrendMac = '';
@@ -488,17 +486,19 @@ return view.extend({
 		/* luci-app-bandix historyHover: pause trend poll while pointer on chart (desktop). */
 		this.trendChartPauseRefresh = false;
 		this.statsHoverIndex = null;
-			this.rate = {
-				schedules: [],
-				ifaceLimits: [],
-				guestDefaults: [],
-				guestWhitelist: []
-			};
-			this.ifaceLimitEditingIface = '';
-			this.scheduleDayButtonList = [];
-			this.liveReqSeq = 0;
-			this.trendReqSeq = 0;
-		},
+		this.rate = {
+			schedules: [],
+			ifaceLimits: [],
+			guestDefaults: [],
+			guestWhitelist: []
+		};
+		this.ifaceLimitEditingIface = '';
+		this.guestRuleEditingIface = '';
+		this.guestRuleWhitelist = [];
+		this.scheduleDayButtonList = [];
+		this.liveReqSeq = 0;
+		this.trendReqSeq = 0;
+	},
 
 	setThemeClass: function () {
 		var m = getThemeMode();
@@ -867,8 +867,7 @@ return view.extend({
 			this.rate.guestWhitelist = res[3] || [];
 			if (!this.isScheduleHubUiOpen()) {
 				this.renderIfaceLimitTable();
-				this.renderGuestDefaultTable();
-				this.renderWhitelistTable();
+				this.renderGuestControlTable();
 			}
 		}, this)).catch(L.bind(function (e) {
 			if (showErr) this.notifyError(_('Failed to refresh rate-limit data'), e);
@@ -1073,10 +1072,21 @@ return view.extend({
 		var sel = this.el.statsIface;
 		if (!sel) return;
 		var old = sel.value || this.selectedIface;
-		dom.content(sel, []);
+		var rows = [];
 		for (var i = 0; i < this.overview.length; i++) {
 			var o = this.overview[i];
-			sel.appendChild(E('option', { 'value': o.ifname }, [ o.ifname + ' (' + (o.zone || '—') + ')' ]));
+			rows.push({
+				value: o.ifname,
+				label: o.ifname + ' (' + (o.zone || '—') + ')'
+			});
+		}
+		if (!hasSameSelectOptions(sel, rows)) {
+			if (document.activeElement !== sel) {
+				var nodes = [];
+				for (var j = 0; j < rows.length; j++)
+					nodes.push(E('option', { 'value': rows[j].value }, [ rows[j].label ]));
+				dom.content(sel, nodes);
+			}
 		}
 		if (old) sel.value = old;
 		if (!sel.value && this.overview.length) sel.value = this.overview[0].ifname;
@@ -1088,10 +1098,21 @@ return view.extend({
 		var sel = this.el.rankIface;
 		if (!sel) return;
 		var old = sel.value || (this.el.statsIface ? this.el.statsIface.value : '') || this.selectedIface;
-		dom.content(sel, []);
+		var rows = [];
 		for (var i = 0; i < this.overview.length; i++) {
 			var o = this.overview[i];
-			sel.appendChild(E('option', { 'value': o.ifname }, [ o.ifname + ' (' + (o.zone || '—') + ')' ]));
+			rows.push({
+				value: o.ifname,
+				label: o.ifname + ' (' + (o.zone || '—') + ')'
+			});
+		}
+		if (!hasSameSelectOptions(sel, rows)) {
+			if (document.activeElement !== sel) {
+				var nodes = [];
+				for (var j = 0; j < rows.length; j++)
+					nodes.push(E('option', { 'value': rows[j].value }, [ rows[j].label ]));
+				dom.content(sel, nodes);
+			}
 		}
 		if (old) sel.value = old;
 		if (!sel.value && this.overview.length) sel.value = this.overview[0].ifname;
@@ -1624,51 +1645,392 @@ return view.extend({
 		}
 	},
 
-	renderGuestDefaultTable: function () {
+	renderGuestControlTable: function () {
 		var self = this;
-		var list = this.rate.guestDefaults || [];
-		dom.content(this.el.guestDefaultBody, []);
-		if (!list.length) {
-			this.el.guestDefaultBody.appendChild(E('tr', {}, [ E('td', { 'colspan': '6', 'class': 'bplus-empty' }, [ _('(empty)') ]) ]));
+		var defaults = Array.isArray(this.rate.guestDefaults) ? this.rate.guestDefaults : [];
+		var whitelist = Array.isArray(this.rate.guestWhitelist) ? this.rate.guestWhitelist : [];
+		var rowsByIface = {};
+		var ifaces = [];
+		var i;
+
+		for (i = 0; i < defaults.length; i++) {
+			var it = defaults[i] || {};
+			var iface = String(it.iface || '').trim();
+			if (!iface) continue;
+			if (!rowsByIface[iface]) {
+				rowsByIface[iface] = { iface: iface, whitelist_count: 0 };
+				ifaces.push(iface);
+			}
+			rowsByIface[iface].up_v4_kbps = asNum(it.up_v4_kbps);
+			rowsByIface[iface].down_v4_kbps = asNum(it.down_v4_kbps);
+			rowsByIface[iface].up_v6_kbps = asNum(it.up_v6_kbps);
+			rowsByIface[iface].down_v6_kbps = asNum(it.down_v6_kbps);
+			rowsByIface[iface].enabled = it.enabled == null ? true : !!it.enabled;
+		}
+
+		for (i = 0; i < whitelist.length; i++) {
+			var w = whitelist[i] || {};
+			var wiface = String(w.iface || '').trim();
+			if (!wiface) continue;
+			if (!rowsByIface[wiface]) {
+				rowsByIface[wiface] = {
+					iface: wiface,
+					up_v4_kbps: 0,
+					down_v4_kbps: 0,
+					up_v6_kbps: 0,
+					down_v6_kbps: 0,
+					enabled: true,
+					whitelist_count: 0
+				};
+				ifaces.push(wiface);
+			}
+			rowsByIface[wiface].whitelist_count++;
+		}
+
+		ifaces.sort();
+		dom.content(this.el.guestRuleBody, []);
+		if (!ifaces.length) {
+			this.el.guestRuleBody.appendChild(E('tr', {}, [
+				E('td', { 'colspan': '8', 'class': 'bplus-empty' }, [ _('(empty)') ])
+			]));
 			return;
 		}
-		for (var i = 0; i < list.length; i++) {
-			(function (it) {
-				self.el.guestDefaultBody.appendChild(E('tr', {}, [
-					E('td', {}, [ String(it.iface || '—') ]),
-					E('td', {}, [ String(it.down_v4_kbps || 0) ]),
-					E('td', {}, [ String(it.down_v6_kbps || 0) ]),
-					E('td', {}, [ String(it.up_v4_kbps || 0) ]),
-					E('td', {}, [ String(it.up_v6_kbps || 0) ]),
-					E('td', {}, [ E('button', {
-						'class': 'btn cbi-button cbi-button-remove',
-						'click': function () { self.deleteGuestDefault(it.iface); }
-					}, [ _('Delete') ]) ])
+
+		for (i = 0; i < ifaces.length; i++) {
+			(function (row) {
+				self.el.guestRuleBody.appendChild(E('tr', {}, [
+					E('td', {}, [ row.iface ]),
+					E('td', {}, [ formatLimitKbpsValue(row.up_v4_kbps) ]),
+					E('td', {}, [ formatLimitKbpsValue(row.down_v4_kbps) ]),
+					E('td', {}, [ formatLimitKbpsValue(row.up_v6_kbps) ]),
+					E('td', {}, [ formatLimitKbpsValue(row.down_v6_kbps) ]),
+					E('td', {}, [ String(asNum(row.whitelist_count)) ]),
+					E('td', {}, [
+						E('span', { 'class': 'bplus-guest-enabled-pill ' + (row.enabled ? 'is-enabled' : 'is-disabled') }, [
+							row.enabled ? _('Enabled') : _('Disabled')
+						])
+					]),
+					E('td', {}, [
+						E('button', {
+							'class': 'btn cbi-button cbi-button-edit',
+							'type': 'button',
+							'click': function () { self.openGuestRuleModal(row.iface); }
+						}, [ _('Edit') ])
+					])
 				]));
-			})(list[i]);
+			})(rowsByIface[ifaces[i]]);
 		}
 	},
 
-	renderWhitelistTable: function () {
-		var self = this;
+	findGuestDefaultByIface: function (iface) {
+		var target = String(iface || '').trim();
+		if (!target) return null;
+		var list = this.rate.guestDefaults || [];
+		for (var i = 0; i < list.length; i++) {
+			var it = list[i] || {};
+			if (String(it.iface || '').trim() === target)
+				return it;
+		}
+		return null;
+	},
+
+	findGuestWhitelistByIface: function (iface) {
+		var target = String(iface || '').trim();
 		var list = this.rate.guestWhitelist || [];
-		dom.content(this.el.whitelistBody, []);
-		if (!list.length) {
-			this.el.whitelistBody.appendChild(E('tr', {}, [ E('td', { 'colspan': '3', 'class': 'bplus-empty' }, [ _('(empty)') ]) ]));
+		var out = [];
+		if (!target) return out;
+		for (var i = 0; i < list.length; i++) {
+			var it = list[i] || {};
+			if (String(it.iface || '').trim() === target)
+				out.push(it);
+		}
+		return out;
+	},
+
+	getGuestIfaceCandidates: function () {
+		var map = {};
+		var out = [];
+		var pushIface = function (v) {
+			var s = String(v || '').trim();
+			if (!s || map[s]) return;
+			map[s] = 1;
+			out.push(s);
+		};
+		var i;
+		for (i = 0; i < this.overview.length; i++)
+			pushIface(this.overview[i] && this.overview[i].ifname);
+		for (i = 0; i < this.rate.guestDefaults.length; i++)
+			pushIface(this.rate.guestDefaults[i] && this.rate.guestDefaults[i].iface);
+		for (i = 0; i < this.rate.guestWhitelist.length; i++)
+			pushIface(this.rate.guestWhitelist[i] && this.rate.guestWhitelist[i].iface);
+		out.sort();
+		return out;
+	},
+
+	syncGuestRuleIfaceOptions: function () {
+		if (!this.el.guestRuleIface) return;
+		var selected = String(this.el.guestRuleIface.value || '').trim();
+		var ifaces = this.getGuestIfaceCandidates();
+		var rows = ifaces.map(function (x) { return { value: x, label: x }; });
+		if (!hasSameSelectOptions(this.el.guestRuleIface, rows)) {
+			if (document.activeElement === this.el.guestRuleIface)
+				return;
+			dom.content(this.el.guestRuleIface, []);
+			for (var i = 0; i < ifaces.length; i++) {
+				this.el.guestRuleIface.appendChild(E('option', { 'value': ifaces[i] }, [ ifaces[i] ]));
+			}
+		}
+		if (selected && ifaces.indexOf(selected) >= 0)
+			this.el.guestRuleIface.value = selected;
+		else if (ifaces.length > 0)
+			this.el.guestRuleIface.value = ifaces[0];
+	},
+
+	getGuestWhitelistMacCandidateRows: function (iface) {
+		var target = String(iface || '').trim();
+		var byMac = {};
+		var add = function (mac, label) {
+			var key = String(mac || '').toLowerCase().replace(/-/g, ':').trim();
+			if (!/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(key)) return;
+			if (!byMac[key]) byMac[key] = String(label || key);
+		};
+		var i;
+		for (i = 0; i < this.devices.length; i++) {
+			var d = this.devices[i] || {};
+			if (target && String(deviceIfaceName(d) || '').trim() !== target) continue;
+			var hn = String(d.hostname || '').trim();
+			if (!hn || hn === '-' || hn === '—') hn = '';
+			var mac = this.normalizeMacKey(d.mac);
+			add(mac, hn ? (hn + ' · ' + mac) : mac);
+		}
+		for (i = 0; i < this.rate.guestWhitelist.length; i++) {
+			var w = this.rate.guestWhitelist[i] || {};
+			if (target && String(w.iface || '').trim() !== target) continue;
+			add(this.normalizeMacKey(w.mac), this.normalizeMacKey(w.mac));
+		}
+		for (i = 0; i < this.guestRuleWhitelist.length; i++) {
+			var cur = this.normalizeMacKey(this.guestRuleWhitelist[i]);
+			add(cur, byMac[cur] || cur);
+		}
+		var keys = Object.keys(byMac);
+		keys.sort(function (a, b) {
+			var la = String(byMac[a] || a);
+			var lb = String(byMac[b] || b);
+			return la.localeCompare(lb);
+		});
+		return keys.map(function (mac) {
+			return { value: mac, label: String(byMac[mac] || mac) };
+		});
+	},
+
+	syncGuestRuleWhitelistMacOptions: function (iface) {
+		if (!this.el.guestRuleWhitelistInput) return;
+		var selected = String(this.el.guestRuleWhitelistInput.value || '').trim();
+		var items = this.getGuestWhitelistMacCandidateRows(iface);
+		var rows = [ { value: '', label: _('Select MAC') } ].concat(items);
+		if (!hasSameSelectOptions(this.el.guestRuleWhitelistInput, rows)) {
+			if (document.activeElement === this.el.guestRuleWhitelistInput)
+				return;
+			dom.content(this.el.guestRuleWhitelistInput, []);
+			for (var i = 0; i < rows.length; i++) {
+				this.el.guestRuleWhitelistInput.appendChild(E('option', { 'value': rows[i].value }, [ rows[i].label ]));
+			}
+		}
+		var ok = false;
+		for (var j = 0; j < items.length; j++) {
+			if (String(items[j].value) === selected) {
+				ok = true;
+				break;
+			}
+		}
+		if (selected && ok)
+			this.el.guestRuleWhitelistInput.value = selected;
+		else
+			this.el.guestRuleWhitelistInput.value = '';
+	},
+
+	setGuestRuleWhitelist: function (macList) {
+		var map = {};
+		var out = [];
+		for (var i = 0; i < macList.length; i++) {
+			var mac = this.normalizeMacKey(macList[i]);
+			if (!mac || map[mac]) continue;
+			map[mac] = 1;
+			out.push(mac);
+		}
+		out.sort();
+		this.guestRuleWhitelist = out;
+		this.renderGuestRuleWhitelistEditor();
+	},
+
+	renderGuestRuleWhitelistEditor: function () {
+		var self = this;
+		dom.content(this.el.guestRuleWhitelistBody, []);
+		if (!this.guestRuleWhitelist.length) {
+			this.el.guestRuleWhitelistBody.appendChild(E('tr', {}, [
+				E('td', { 'colspan': '3', 'class': 'bplus-empty' }, [ _('(empty)') ])
+			]));
 			return;
 		}
-		for (var i = 0; i < list.length; i++) {
-			(function (w) {
-				self.el.whitelistBody.appendChild(E('tr', {}, [
-					E('td', {}, [ String(w.iface || '—') ]),
-					E('td', { 'class': 'bplus-mono' }, [ String(w.mac || '—') ]),
-					E('td', {}, [ E('button', {
-						'class': 'btn cbi-button cbi-button-remove',
-						'click': function () { self.removeWhitelist(w); }
-					}, [ _('Delete') ]) ])
+		for (var i = 0; i < this.guestRuleWhitelist.length; i++) {
+			(function (mac) {
+				var hn = self.guestHostnameForMac(self.guestRuleEditingIface, mac) || '—';
+				self.el.guestRuleWhitelistBody.appendChild(E('tr', {}, [
+					E('td', {}, [ hn ]),
+					E('td', { 'class': 'bplus-mono' }, [ mac ]),
+					E('td', {}, [
+						E('button', {
+							'type': 'button',
+							'class': 'btn cbi-button cbi-button-remove',
+							'click': function () {
+								var next = [];
+								for (var j = 0; j < self.guestRuleWhitelist.length; j++) {
+									if (self.guestRuleWhitelist[j] !== mac)
+										next.push(self.guestRuleWhitelist[j]);
+								}
+								self.setGuestRuleWhitelist(next);
+							}
+						}, [ _('Delete') ])
+					])
 				]));
-			})(list[i]);
+			})(this.guestRuleWhitelist[i]);
 		}
+	},
+
+	guestHostnameForMac: function (iface, mac) {
+		var targetIface = String(iface || '').trim();
+		var targetMac = this.normalizeMacKey(mac);
+		if (!targetMac) return '';
+		for (var i = 0; i < this.devices.length; i++) {
+			var d = this.devices[i] || {};
+			if (targetIface && String(deviceIfaceName(d) || '').trim() !== targetIface)
+				continue;
+			if (this.normalizeMacKey(d.mac) !== targetMac)
+				continue;
+			var hn = String(d.hostname || '').trim();
+			if (!hn || hn === '-' || hn === '—') return '';
+			return hn;
+		}
+		return '';
+	},
+
+	fillGuestRuleFormForIface: function (iface) {
+		var target = String(iface || '').trim();
+		var current = this.findGuestDefaultByIface(target);
+		var whitelist = this.findGuestWhitelistByIface(target);
+		this.el.guestRuleD4.value = String(current ? asNum(current.down_v4_kbps) : 0);
+		this.el.guestRuleD6.value = String(current ? asNum(current.down_v6_kbps) : 0);
+		this.el.guestRuleU4.value = String(current ? asNum(current.up_v4_kbps) : 0);
+		this.el.guestRuleU6.value = String(current ? asNum(current.up_v6_kbps) : 0);
+		this.el.guestRuleEnabled.checked = current && current.enabled != null ? !!current.enabled : true;
+		this.guestRuleEditingIface = target;
+		this.setGuestRuleWhitelist(whitelist.map(function (it) { return String(it.mac || ''); }));
+		this.syncGuestRuleWhitelistMacOptions(target);
+	},
+
+	showGuestRuleModal: function () {
+		if (this.el.guestRuleOverlay)
+			this.el.guestRuleOverlay.classList.add('show');
+	},
+
+	hideGuestRuleModal: function () {
+		if (this.el.guestRuleOverlay)
+			this.el.guestRuleOverlay.classList.remove('show');
+		this.guestRuleEditingIface = '';
+		this.guestRuleWhitelist = [];
+	},
+
+	openGuestRuleModal: function (iface) {
+		this.syncGuestRuleIfaceOptions();
+		var target = String(iface || '').trim();
+		if (!target && this.el.guestRuleIface)
+			target = String(this.el.guestRuleIface.value || '').trim();
+		if (!target) {
+			this.notifyError(_('Iface is required'), null);
+			return;
+		}
+		this.el.guestRuleIface.value = target;
+		if (this.el.guestRuleModalTitle)
+			this.el.guestRuleModalTitle.textContent = _('Guest rule') + ': ' + target;
+		this.fillGuestRuleFormForIface(target);
+		this.showGuestRuleModal();
+	},
+
+	addGuestRuleWhitelistFromInput: function () {
+		var raw = String(this.el.guestRuleWhitelistInput.value || '').trim();
+		if (!raw) return;
+		var mac = this.normalizeMacKey(raw);
+		if (!/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(mac)) {
+			this.notifyError(_('Invalid MAC address'), null);
+			return;
+		}
+		var next = this.guestRuleWhitelist.slice();
+		if (next.indexOf(mac) < 0)
+			next.push(mac);
+		this.setGuestRuleWhitelist(next);
+		this.syncGuestRuleWhitelistMacOptions(this.guestRuleEditingIface || this.el.guestRuleIface.value);
+	},
+
+	submitGuestRule: function (ev) {
+		ev.preventDefault();
+		var iface = String(this.el.guestRuleIface.value || '').trim();
+		if (!iface) {
+			this.notifyError(_('Iface is required'), null);
+			return;
+		}
+		var payload = {
+			iface: iface,
+			down_v4_kbps: asNum(this.el.guestRuleD4.value),
+			down_v6_kbps: asNum(this.el.guestRuleD6.value),
+			up_v4_kbps: asNum(this.el.guestRuleU4.value),
+			up_v6_kbps: asNum(this.el.guestRuleU6.value)
+		};
+		var enabledPayload = {
+			iface: iface,
+			enabled: !!this.el.guestRuleEnabled.checked
+		};
+
+		var currentWhitelist = this.findGuestWhitelistByIface(iface);
+		var currentMap = {};
+		var nextMap = {};
+		var i;
+		for (i = 0; i < currentWhitelist.length; i++) {
+			var curMac = this.normalizeMacKey(currentWhitelist[i] && currentWhitelist[i].mac);
+			if (curMac) currentMap[curMac] = 1;
+		}
+		for (i = 0; i < this.guestRuleWhitelist.length; i++)
+			nextMap[this.guestRuleWhitelist[i]] = 1;
+
+		var reqs = [];
+		reqs.push(callSetGuestDefault(payload).then(bplusJson).then(function (r) {
+			if (r && r.ok === false) throw new Error(r.error || 'set guest default failed');
+		}));
+		reqs.push(callSetGuestDefaultEnabled(enabledPayload).then(bplusJson).then(function (r) {
+			if (r && r.ok === false) throw new Error(r.error || 'set guest enable failed');
+		}));
+
+		for (var mac in nextMap) {
+			if (!currentMap[mac]) {
+				reqs.push(callAddGuestWhitelist({ iface: iface, mac: mac }).then(bplusJson).then(function (r) {
+					if (r && r.ok === false) throw new Error(r.error || 'add whitelist failed');
+				}));
+			}
+		}
+		for (mac in currentMap) {
+			if (!nextMap[mac]) {
+				reqs.push(callRemoveGuestWhitelist({ iface: iface, mac: mac }).then(bplusJson).then(function (r) {
+					if (r && r.ok === false) throw new Error(r.error || 'remove whitelist failed');
+				}));
+			}
+		}
+
+		Promise.all(reqs).then(L.bind(function () {
+			return this.refreshRateData(false);
+		}, this)).then(L.bind(function () {
+			this.hideGuestRuleModal();
+		}, this)).catch(L.bind(function (e) {
+			this.notifyError(_('Failed to save guest rule'), e);
+		}, this));
 	},
 
 	findIfaceLimitByIface: function (iface) {
@@ -2050,60 +2412,15 @@ return view.extend({
 		}, this));
 	},
 
-	submitGuestDefault: function (ev) {
-		ev.preventDefault();
-		var payload = {
-			iface: this.el.guestDefIface.value.trim(),
-			down_v4_kbps: asNum(this.el.guestDefD4.value),
-			down_v6_kbps: asNum(this.el.guestDefD6.value),
-			up_v4_kbps: asNum(this.el.guestDefU4.value),
-			up_v6_kbps: asNum(this.el.guestDefU6.value)
-		};
-		if (!payload.iface) {
-			this.notifyError(_('Iface is required'), null);
-			return;
-		}
-		callSetGuestDefault(payload).then(bplusJson).then(L.bind(function (r) {
-			if (r && r.ok === false) throw new Error(r.error || 'set failed');
-			ui.addNotification(null, E('p', {}, [ _('Guest default saved') ]));
-			return this.refreshRateData(false);
-		}, this)).catch(L.bind(function (e) {
-			this.notifyError(_('Failed to save guest default'), e);
-		}, this));
-	},
-
-	submitWhitelist: function (ev) {
-		ev.preventDefault();
-		var payload = {
-			iface: this.el.wlIface.value.trim(),
-			mac: this.el.wlMac.value.trim()
-		};
-		if (!payload.iface || !payload.mac) {
-			this.notifyError(_('Iface and MAC are required'), null);
-			return;
-		}
-		callAddGuestWhitelist(payload).then(bplusJson).then(L.bind(function (r) {
-			if (r && r.ok === false) throw new Error(r.error || 'add failed');
-			ui.addNotification(null, E('p', {}, [ _('Whitelist entry added') ]));
-			this.el.wlMac.value = '';
-			return this.refreshRateData(false);
-		}, this)).catch(L.bind(function (e) {
-			this.notifyError(_('Failed to add whitelist entry'), e);
-		}, this));
-	},
-
 	syncRateFormIfaceOptions: function () {
-		var opts = this.overview.map(function (x) {
-			return E('option', { 'value': x.ifname }, [ x.ifname ]);
-		});
-		var targets = [ this.el.ifLimitIfaceList, this.el.guestDefIfaceList, this.el.wlIfaceList ];
-		for (var i = 0; i < targets.length; i++) {
-			if (!targets[i]) continue;
-			dom.content(targets[i], []);
-			for (var j = 0; j < opts.length; j++) {
-				targets[i].appendChild(E('option', { 'value': opts[j].getAttribute('value') }, [ opts[j].textContent ]));
-			}
-		}
+		var ifaceList = this.overview.map(function (x) {
+			return String(x.ifname || '').trim();
+		}).filter(function (x) { return !!x; });
+		dom.content(this.el.ifLimitIfaceList, []);
+		for (var i = 0; i < ifaceList.length; i++)
+			this.el.ifLimitIfaceList.appendChild(E('option', { 'value': ifaceList[i] }, [ ifaceList[i] ]));
+		this.syncGuestRuleIfaceOptions();
+		this.syncGuestRuleWhitelistMacOptions(this.el.guestRuleIface && this.el.guestRuleIface.value);
 	},
 
 	drawStatsChart: function () {
@@ -2657,8 +2974,31 @@ return view.extend({
 			ev.preventDefault();
 			this.hideIfaceLimitModal();
 		}, this));
-		this.el.guestDefaultForm.addEventListener('submit', L.bind(this.submitGuestDefault, this));
-		this.el.whitelistForm.addEventListener('submit', L.bind(this.submitWhitelist, this));
+		this.el.guestPolicyAddRuleBtn.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.openGuestRuleModal('');
+		}, this));
+		this.el.guestRuleModalCancel.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.hideGuestRuleModal();
+		}, this));
+		this.el.guestRuleModalDismiss.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.hideGuestRuleModal();
+		}, this));
+		this.el.guestRuleForm.addEventListener('submit', L.bind(this.submitGuestRule, this));
+		this.el.guestRuleWhitelistAdd.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.addGuestRuleWhitelistFromInput();
+		}, this));
+		this.el.guestRuleIface.addEventListener('change', L.bind(function () {
+			var iface = String(this.el.guestRuleIface.value || '').trim();
+			if (!iface) return;
+			if (this.el.guestRuleModalTitle)
+				this.el.guestRuleModalTitle.textContent = _('Guest rule') + ': ' + iface;
+			this.fillGuestRuleFormForIface(iface);
+			this.syncGuestRuleWhitelistMacOptions(iface);
+		}, this));
 
 		this.el.statsQuery.addEventListener('click', L.bind(this.queryStats, this));
 		this.el.statsReset.addEventListener('click', L.bind(function () {
@@ -2774,12 +3114,9 @@ return view.extend({
 		]);
 
 		this.el.ifaceLimitBody = E('tbody');
-		this.el.guestDefaultBody = E('tbody');
-		this.el.whitelistBody = E('tbody');
+		this.el.guestRuleBody = E('tbody');
 
 		this.el.ifLimitIfaceList = E('datalist', { 'id': 'bplus_iflimit_iface_list' });
-		this.el.guestDefIfaceList = E('datalist', { 'id': 'bplus_guest_iface_list' });
-		this.el.wlIfaceList = E('datalist', { 'id': 'bplus_wl_iface_list' });
 
 		this.el.schStart = E('input', { 'class': 'cbi-input-text bplus-schedule-time-input', 'type': 'time', 'value': '09:00' });
 		this.el.schEnd = E('input', { 'class': 'cbi-input-text bplus-schedule-time-input', 'type': 'time', 'value': '18:00' });
@@ -3004,29 +3341,99 @@ return view.extend({
 			])
 		]);
 
-		this.el.guestDefIface = E('input', { 'class': 'cbi-input-text', 'list': 'bplus_guest_iface_list', 'placeholder': 'eth0' });
-		this.el.guestDefD4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '0' });
-		this.el.guestDefD6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '0' });
-		this.el.guestDefU4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '0' });
-		this.el.guestDefU6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'value': '0' });
-		this.el.guestDefaultForm = E('form', { 'class': 'form-grid' }, [
-			E('label', { 'class': 'field' }, [ _('Iface'), this.el.guestDefIface ]),
-			E('label', { 'class': 'field' }, [ 'down v4 (MB/s)', this.el.guestDefD4 ]),
-			E('label', { 'class': 'field' }, [ 'down v6 (MB/s)', this.el.guestDefD6 ]),
-			E('label', { 'class': 'field' }, [ 'up v4 (MB/s)', this.el.guestDefU4 ]),
-			E('label', { 'class': 'field' }, [ 'up v6 (MB/s)', this.el.guestDefU6 ]),
-			E('div', { 'class': 'actions-row field-wide' }, [
-				E('button', { 'class': 'btn cbi-button cbi-button-save', 'type': 'submit' }, [ _('Save guest default') ])
+		this.el.guestRuleIface = E('select', { 'class': 'cbi-input-select' });
+		this.el.guestRuleD4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
+		this.el.guestRuleD6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
+		this.el.guestRuleU4 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
+		this.el.guestRuleU6 = E('input', { 'class': 'cbi-input-text', 'type': 'number', 'min': '0', 'step': '1', 'value': '0' });
+		this.el.guestRuleEnabled = E('input', { 'type': 'checkbox' });
+		this.el.guestRuleWhitelistInput = E('select', { 'class': 'cbi-input-select' });
+		this.el.guestRuleWhitelistAdd = E('button', { 'class': 'btn cbi-button cbi-button-action', 'type': 'button' }, [ _('Add') ]);
+		this.el.guestRuleWhitelistBody = E('tbody');
+		this.el.guestRuleModalDismiss = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-reset bplus-modal-dismiss', 'aria-label': 'Close' }, [ '×' ]);
+		this.el.guestRuleModalCancel = E('button', { 'class': 'btn cbi-button cbi-button-reset', 'type': 'button' }, [ _('Cancel') ]);
+		this.el.guestRuleModalSave = E('button', { 'class': 'btn cbi-button cbi-button-save', 'type': 'submit' }, [ _('Save') ]);
+		this.el.guestRuleForm = E('form', { 'class': 'bplus-schedule-form bplus-guest-rule-form' }, [
+			E('div', { 'class': 'bplus-form-group' }, [
+				E('label', { 'class': 'bplus-form-label' }, [ _('Iface') ]),
+				this.el.guestRuleIface
+			]),
+			E('div', { 'class': 'bplus-form-group bplus-schedule-limits-block' }, [
+				E('label', { 'class': 'bplus-form-label' }, [ _('Upload') + ' (kbps)' ]),
+				E('div', { 'class': 'bplus-schedule-rate-pair' }, [
+					E('div', { 'class': 'bplus-schedule-rate-col' }, [
+						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv4' ]),
+						this.el.guestRuleU4
+					]),
+					E('div', { 'class': 'bplus-schedule-rate-col' }, [
+						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv6' ]),
+						this.el.guestRuleU6
+					])
+				]),
+				E('div', { 'class': 'bplus-form-hint' }, [ _('Tip: 0 means unlimited') ])
+			]),
+			E('div', { 'class': 'bplus-form-group bplus-schedule-limits-block' }, [
+				E('label', { 'class': 'bplus-form-label' }, [ _('Download') + ' (kbps)' ]),
+				E('div', { 'class': 'bplus-schedule-rate-pair' }, [
+					E('div', { 'class': 'bplus-schedule-rate-col' }, [
+						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv4' ]),
+						this.el.guestRuleD4
+					]),
+					E('div', { 'class': 'bplus-schedule-rate-col' }, [
+						E('span', { 'class': 'bplus-form-sublabel' }, [ 'IPv6' ]),
+						this.el.guestRuleD6
+					])
+				]),
+				E('div', { 'class': 'bplus-form-hint' }, [ _('Tip: 0 means unlimited') ])
+			]),
+			E('div', { 'class': 'bplus-form-group bplus-guest-enabled-row' }, [
+				E('label', { 'class': 'bplus-form-label' }, [ _('Enabled') ]),
+				E('label', { 'class': 'bplus-toggle' }, [
+					this.el.guestRuleEnabled
+				])
+			]),
+			E('div', { 'class': 'bplus-form-group' }, [
+				E('label', { 'class': 'bplus-form-label' }, [ _('Whitelist') ]),
+				E('div', { 'class': 'bplus-guest-whitelist-add-row' }, [
+					this.el.guestRuleWhitelistInput,
+					this.el.guestRuleWhitelistAdd
+				]),
+				E('div', { 'class': 'table-wrapper compact' }, [
+					E('table', { 'class': 'table bplus-table bplus-guest-whitelist-table' }, [
+						E('thead', {}, [ E('tr', {}, [ E('th', {}, [ _('Hostname') ]), E('th', {}, [ 'MAC' ]), E('th', {}, [ _('actions') ]) ]) ]),
+						this.el.guestRuleWhitelistBody
+					])
+				])
+			]),
+			E('div', { 'class': 'bplus-modal-form-footer' }, [ this.el.guestRuleModalCancel, this.el.guestRuleModalSave ])
+		]);
+		this.el.guestRuleModalTitle = E('h3', { 'class': 'bplus-modal-title' }, [ _('Guest rule') ]);
+		this.el.guestRuleOverlay = E('div', { 'class': 'bplus-modal-overlay', 'id': 'bplus-guest-rule-modal' }, [
+			E('div', { 'class': 'bplus-modal-panel bplus-modal-panel--guest' }, [
+				E('div', { 'class': 'bplus-modal-header' }, [
+					this.el.guestRuleModalTitle,
+					this.el.guestRuleModalDismiss
+				]),
+				E('div', { 'class': 'bplus-modal-body' }, [ this.el.guestRuleForm ])
 			])
 		]);
 
-		this.el.wlIface = E('input', { 'class': 'cbi-input-text', 'list': 'bplus_wl_iface_list', 'placeholder': 'eth0' });
-		this.el.wlMac = E('input', { 'class': 'cbi-input-text bplus-mono', 'placeholder': 'aa:bb:cc:dd:ee:ff' });
-		this.el.whitelistForm = E('form', { 'class': 'form-grid' }, [
-			E('label', { 'class': 'field' }, [ _('Iface'), this.el.wlIface ]),
-			E('label', { 'class': 'field' }, [ 'MAC', this.el.wlMac ]),
-			E('div', { 'class': 'actions-row field-wide' }, [
-				E('button', { 'class': 'btn cbi-button cbi-button-save', 'type': 'submit' }, [ _('Add whitelist') ])
+		this.el.guestPolicyAddRuleBtn = E('button', { 'type': 'button', 'class': 'btn cbi-button cbi-button-action' }, [ _('Add rule') ]);
+		this.el.guestRulesPane = E('div', { 'class': 'guest-policy-pane guest-policy-pane--rules' }, [
+			E('div', { 'class': 'table-wrapper compact' }, [
+				E('table', { 'class': 'table bplus-table bplus-guest-rules-table' }, [
+					E('thead', {}, [ E('tr', {}, [
+						E('th', {}, [ _('Iface') ]),
+						E('th', {}, [ _('IPv4 Upload') ]),
+						E('th', {}, [ _('IPv4 Download') ]),
+						E('th', {}, [ _('IPv6 Upload') ]),
+						E('th', {}, [ _('IPv6 Download') ]),
+						E('th', {}, [ _('Whitelist') ]),
+						E('th', {}, [ _('Enabled') ]),
+						E('th', {}, [ _('actions') ])
+					]) ]),
+					this.el.guestRuleBody
+				])
 			])
 		]);
 
@@ -3037,7 +3444,7 @@ return view.extend({
 			E('option', { 'value': 'hourly' }, [ _('Hourly') ]),
 			E('option', { 'value': 'daily' }, [ _('Daily') ])
 		]);
-		this.el.statsBucket.value = 'daily';
+		this.el.statsBucket.value = 'hourly';
 		this.el.statsQuery = E('button', { 'class': 'cbi-button cbi-button-action usage-ranking-query-btn', 'type': 'button', 'id': 'bplus-stats-query' }, [ E('span', {}, [ _('Query') ]) ]);
 		this.el.statsReset = E('button', { 'class': 'cbi-button cbi-button-reset', 'type': 'button', 'id': 'bplus-stats-reset' }, [ _('Reset') ]);
 		this.el.presetToday = E('button', { 'class': 'cbi-button cbi-button-neutral', 'type': 'button', 'data-preset': 'today' }, [ _('Today') ]);
@@ -3257,31 +3664,16 @@ return view.extend({
 
 				E('section', { 'class': 'bplus-panel' }, [
 					E('div', { 'class': 'bplus-panel-head' }, [
-						E('h2', {}, [ _('Rate limit') ]),
+						E('h2', {}, [ _('Guest control') ]),
 						E('span', { 'class': 'meta-pill' }, [ _('Write operations') ])
 					]),
 					E('div', { 'class': 'policy-grid' }, [
 						E('article', { 'class': 'policy-card' }, [
-							E('h3', {}, [ 'Guest defaults' ]),
-							this.el.guestDefIfaceList,
-							this.el.guestDefaultForm,
-							E('div', { 'class': 'table-wrapper compact' }, [
-								E('table', { 'class': 'table bplus-table' }, [
-									E('thead', {}, [ E('tr', {}, [ E('th', {}, [ 'iface' ]), E('th', {}, [ 'd4' ]), E('th', {}, [ 'd6' ]), E('th', {}, [ 'u4' ]), E('th', {}, [ 'u6' ]), E('th', {}, [ _('actions') ]) ]) ]),
-									this.el.guestDefaultBody
-								])
-							])
-						]),
-						E('article', { 'class': 'policy-card' }, [
-							E('h3', {}, [ 'Guest whitelist' ]),
-							this.el.wlIfaceList,
-							this.el.whitelistForm,
-							E('div', { 'class': 'table-wrapper compact' }, [
-								E('table', { 'class': 'table bplus-table' }, [
-									E('thead', {}, [ E('tr', {}, [ E('th', {}, [ 'iface' ]), E('th', {}, [ 'mac' ]), E('th', {}, [ _('actions') ]) ]) ]),
-									this.el.whitelistBody
-								])
-							])
+							E('div', { 'class': 'guest-policy-toolbar' }, [
+								E('span', { 'class': 'bplus-subline' }, [ _('Guest rules') ]),
+								E('div', { 'class': 'guest-policy-actions' }, [ this.el.guestPolicyAddRuleBtn ])
+							]),
+							this.el.guestRulesPane
 						])
 					])
 				])
@@ -3303,6 +3695,8 @@ return view.extend({
 			this.root.appendChild(this.el.scheduleDeleteConfirmOverlay);
 		if (this.el.ifaceLimitOverlay && this.el.ifaceLimitOverlay.parentNode !== this.root)
 			this.root.appendChild(this.el.ifaceLimitOverlay);
+		if (this.el.guestRuleOverlay && this.el.guestRuleOverlay.parentNode !== this.root)
+			this.root.appendChild(this.el.guestRuleOverlay);
 		this.setThemeClass();
 		this.bindEvents();
 

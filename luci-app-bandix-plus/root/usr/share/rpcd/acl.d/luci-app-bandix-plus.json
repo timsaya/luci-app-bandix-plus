@@ -43,6 +43,7 @@
 					"setIfaceLimit",
 					"deleteIfaceLimit",
 					"setGuestDefault",
+					"setGuestDefaultEnabled",
 					"deleteGuestDefault",
 					"addGuestWhitelist",
 					"removeGuestWhitelist",

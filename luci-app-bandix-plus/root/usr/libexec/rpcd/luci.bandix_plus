@@ -116,6 +116,9 @@ case "$1" in
 		json_add_object "setGuestDefault"
 		json_add_string "payload"
 		json_close_object
+		json_add_object "setGuestDefaultEnabled"
+		json_add_string "payload"
+		json_close_object
 		json_add_object "deleteGuestDefault"
 		json_add_string "iface"
 		json_close_object
@@ -314,6 +317,33 @@ case "$1" in
 					exit 0
 				}
 				bplus_post_json "$js" "$BASE/api/rate_limit/guest_defaults"
+				;;
+			setGuestDefaultEnabled)
+				input=""
+				read -r -t 5 input || true
+				js="${3:-}"
+				if [ -n "$input" ]; then
+					js="$(bplus_unwrap_payload "$input")"
+				elif [ -n "$js" ]; then
+					js="$(bplus_unwrap_payload "$js")"
+				fi
+				iface="$(echo "$js" | jsonfilter -e '$.iface' 2>/dev/null)"
+				enabled="$(echo "$js" | jsonfilter -e '$.enabled' 2>/dev/null)"
+				[ -z "$iface" ] && {
+					printf '%s\n' '{"ok":false,"data":null,"error":"setGuestDefaultEnabled: iface required"}'
+					exit 0
+				}
+				# jsonfilter boolean -> "true"/"false"; jshn expects 1/0 for boolean values.
+				case "$enabled" in
+					1|true|TRUE|True) enabled=1 ;;
+					0|false|FALSE|False|"") enabled=0 ;;
+					*) enabled=0 ;;
+				esac
+				json_init
+				json_add_boolean enabled "$enabled"
+				body="$(json_dump)"
+				json_cleanup
+				bplus_put_json "$body" "$BASE/api/rate_limit/guest_defaults/$(uripart "$iface")/enable"
 				;;
 			deleteGuestDefault)
 				iface="${3:-}"
