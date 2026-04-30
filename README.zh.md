@@ -51,12 +51,21 @@ LuCI Bandix Plus 是 `bandix-plus` 的 LuCI 前端，面向 OpenWrt 的流量监
 
 ## 安装
 
-请先装后端，再装前端：
+1. 先安装 `openwrt-bandix-plus` 后端
 
-```bash
-opkg install bandix-plus_*.ipk
-opkg install luci-app-bandix-plus_*.ipk
-```
+   从 [openwrt-bandix-plus Releases](https://github.com/timsaya/openwrt-bandix-plus/releases) 下载适合您设备的包，然后安装：
+
+   ```bash
+   opkg install bandix-plus_*.ipk  # (或 apk add --allow-untrusted bandix-plus_*.apk)
+   ```
+
+2. 安装 `luci-app-bandix-plus` 前端
+
+   从 [luci-app-bandix-plus Releases](https://github.com/timsaya/luci-app-bandix-plus/releases) 下载包，然后安装：
+
+   ```bash
+   opkg install luci-app-bandix-plus_*.ipk  # (或 apk add --allow-untrusted luci-app-bandix-plus_*.apk)
+   ```
 
 安装后：
 

@@ -51,12 +51,21 @@ Recommended:
 
 ## Installation
 
-Install backend first, then frontend:
+1. Install `openwrt-bandix-plus` backend first
 
-```bash
-opkg install bandix-plus_*.ipk
-opkg install luci-app-bandix-plus_*.ipk
-```
+   Download the appropriate package for your device from [openwrt-bandix-plus Releases](https://github.com/timsaya/openwrt-bandix-plus/releases), then install:
+
+   ```bash
+   opkg install bandix-plus_*.ipk  # (or apk add --allow-untrusted bandix-plus_*.apk)
+   ```
+
+2. Install `luci-app-bandix-plus` frontend
+
+   Download the package from [luci-app-bandix-plus Releases](https://github.com/timsaya/luci-app-bandix-plus/releases), then install:
+
+   ```bash
+   opkg install luci-app-bandix-plus_*.ipk  # (or apk add --allow-untrusted luci-app-bandix-plus_*.apk)
+   ```
 
 After installation:
 
