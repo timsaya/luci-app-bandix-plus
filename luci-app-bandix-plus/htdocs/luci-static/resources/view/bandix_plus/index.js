@@ -522,8 +522,21 @@ function getTrafficThemeColors(rootEl) {
 	return { up: up, down: down };
 }
 
-function getThemeMode() {
+function resolveThemeBasePath() {
 	var theme = uci.get('luci', 'main', 'mediaurlbase');
+	if (theme) return String(theme);
+	if (L && L.env && L.env.mediaurlbase) return String(L.env.mediaurlbase);
+	var links = document.querySelectorAll('link[rel="stylesheet"]');
+	for (var i = 0; i < links.length; i++) {
+		var href = String(links[i].getAttribute('href') || '');
+		var m = href.match(/\/luci-static\/([^/]+)/);
+		if (m && m[1]) return '/luci-static/' + m[1];
+	}
+	return '';
+}
+
+function getThemeMode() {
+	var theme = resolveThemeBasePath();
 	if (theme === '/luci-static/openwrt2020' || theme === '/luci-static/material' || theme === '/luci-static/bootstrap-light')
 		return 'light';
 	if (theme === '/luci-static/bootstrap-dark')
@@ -546,6 +559,9 @@ function getThemeMode() {
 			return 'dark';
 		return 'light';
 	}
+	var html = document.documentElement;
+	if (html && html.getAttribute('data-darkmode') === 'true')
+		return 'dark';
 	if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
 		return 'dark';
 	return 'light';
@@ -586,8 +602,14 @@ function ensureCss() {
 
 return view.extend({
 	load: function () {
+		var optionalLoad = function (pkg) {
+			return uci.load(pkg).catch(function () { return null; });
+		};
 		return Promise.all([
 			uci.load('bandix_plus'),
+			optionalLoad('luci'),
+			optionalLoad('argon'),
+			optionalLoad('kucat'),
 			callGetVersion().then(bplusJson).catch(function () { return {}; })
 		]);
 	},
