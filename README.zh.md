@@ -1,5 +1,8 @@
 # LuCI Bandix Plus
 
+> 推荐用于**多网口**场景。
+> 如果是**单网口**场景，请使用 [LuCI Bandix](https://github.com/timsaya/luci-app-bandix)。
+
 [English](README.md) | 简体中文
 
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
