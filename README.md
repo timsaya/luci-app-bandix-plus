@@ -8,11 +8,6 @@ English | [简体中文](README.zh.md)
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 ![Downloads](https://gh-down-badges.linkof.link/timsaya/luci-app-bandix-plus)
 
-## Important
-
-**The `bandix-plus` core is not open source.**
-
-**提示 `bandix-plus` 核心未开源。**
 
 ## Overview
 
