@@ -17,7 +17,7 @@ function bplusJson(r) {
 return view.extend({
 	load: function () {
 		return Promise.all([
-			uci.load('bandix-plus'),
+			uci.load('bandix_plus'),
 			uci.load('network'),
 			callGetVersion().then(bplusJson)
 		]);
@@ -27,11 +27,11 @@ return view.extend({
 		var m, s, o;
 		var vinfo = load[ 2 ] || {};
 
-		if (!uci.get('bandix-plus', 'general')) {
-			uci.add('bandix-plus', 'bandix_plus', 'general');
+		if (!uci.get('bandix_plus', 'general')) {
+			uci.add('bandix_plus', 'bandix_plus', 'general');
 		}
 
-		m = new form.Map('bandix-plus', _('Bandix Plus'), _('Runtime options for openwrt-bandix-plus service.'));
+		m = new form.Map('bandix_plus', _('Bandix Plus'), _('Runtime options for openwrt-bandix-plus service.'));
 		m.versionInfo = vinfo;
 
 		s = m.section(form.NamedSection, 'general', 'bandix_plus', _('General'));
