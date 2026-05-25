@@ -2,7 +2,7 @@
 # Register bandix-plus UCI changes with LuCI's apply mechanism so that
 # saving the form automatically reloads /etc/init.d/bandix-plus.
 
-if [ ! -s /etc/config/bandix_plus ]; then
+if [ ! -f /etc/config/bandix_plus ]; then
 	touch /etc/config/bandix_plus
 	uci -q batch <<-EOF >/dev/null
 		set bandix_plus.general='bandix_plus'
@@ -20,6 +20,11 @@ uci -q batch <<-EOF >/dev/null
 	set ucitrack.@bandix_plus[-1].init='bandix-plus'
 	commit ucitrack
 EOF
+
+if [ -x /etc/init.d/bandix-plus ]; then
+	/etc/init.d/bandix-plus enable >/dev/null 2>&1
+	/etc/init.d/bandix-plus start >/dev/null 2>&1
+fi
 
 rm -rf /tmp/luci-indexcache /tmp/luci-modulecache/* /tmp/luci-pathcache 2>/dev/null
 
