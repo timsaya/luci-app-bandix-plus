@@ -2,7 +2,10 @@
 'require view';
 'require form';
 'require uci';
+'require rpc';
 'require tools.widgets as widgets';
+
+var callRestartService = rpc.declare({ object: 'luci.bandix_plus', method: 'restartService', expect: {} });
 
 return view.extend({
 	load: function () {
@@ -102,5 +105,11 @@ return view.extend({
 		o.rmempty = false;
 
 		return m.render();
+	},
+
+	handleSaveApply: function (ev, mode) {
+		return this.super('handleSaveApply', [ev, mode]).then(function () {
+			return callRestartService().catch(function(e) { console.error('Restart failed', e); });
+		});
 	}
 });

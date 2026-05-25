@@ -20,7 +20,7 @@
 					"getStatus"
 				]
 			},
-			"uci": [ "bandix-plus" ]
+			"uci": [ "bandix_plus" ]
 		},
 		"write": {
 			"ubus": {
@@ -53,7 +53,7 @@
 					"restartService"
 				]
 			},
-			"uci": [ "bandix-plus" ]
+			"uci": [ "bandix_plus" ]
 		}
 	}
 }

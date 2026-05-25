@@ -480,12 +480,8 @@ case "$1" in
 				json_cleanup
 				;;
 			restartService)
-				if /etc/init.d/bandix-plus restart 2>/dev/null; then
-					json_init; json_add_string ok "1"; json_dump; json_cleanup
-				else
-					c="$?"
-					json_init; json_add_string ok "0"; json_add_int err "$c"; json_dump; json_cleanup
-				fi
+				( sleep 1; /etc/init.d/bandix-plus restart ) >/dev/null 2>&1 &
+				json_init; json_add_string ok "1"; json_dump; json_cleanup
 				;;
 		esac
 		;;
