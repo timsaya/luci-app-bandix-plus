@@ -4,7 +4,7 @@
 
 bplus_base() {
 	local p
-	p="$(uci -q get bandix-plus.general.port)"
+	p="$(uci -q get bandix_plus.general.port)"
 	[ -z "$p" ] && p="8787"
 	printf 'http://127.0.0.1:%s' "$p"
 }
@@ -456,7 +456,7 @@ case "$1" in
 				fi
 
 				# uci enable_traffic flag (1 means user wants service running)
-				enable_traffic="$(uci -q get bandix-plus.general.enable_traffic)"
+				enable_traffic="$(uci -q get bandix_plus.general.enable_traffic)"
 				[ -z "$enable_traffic" ] && enable_traffic=0
 
 				# api health probe

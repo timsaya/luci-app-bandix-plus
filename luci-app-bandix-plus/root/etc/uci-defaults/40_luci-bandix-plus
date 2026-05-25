@@ -3,9 +3,9 @@
 # saving the form automatically reloads /etc/init.d/bandix-plus.
 
 uci -q batch <<-EOF >/dev/null
-	delete ucitrack.@bandix-plus[-1]
-	add ucitrack bandix-plus
-	set ucitrack.@bandix-plus[-1].init=bandix-plus
+	delete ucitrack.@bandix_plus[-1]
+	add ucitrack bandix_plus
+	set ucitrack.@bandix_plus[-1].init=bandix-plus
 	commit ucitrack
 EOF
 

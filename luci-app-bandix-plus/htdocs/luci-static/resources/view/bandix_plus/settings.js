@@ -7,7 +7,7 @@
 return view.extend({
 	load: function () {
 		return Promise.all([
-			uci.load('bandix-plus'),
+			uci.load('bandix_plus'),
 			uci.load('network')
 		]);
 	},
@@ -15,15 +15,15 @@ return view.extend({
 	render: function () {
 		var m, s, o;
 
-		if (!uci.get('bandix-plus', 'general')) {
-			uci.add('bandix-plus', 'bandix_plus', 'general');
+		if (!uci.get('bandix_plus', 'general')) {
+			uci.add('bandix_plus', 'bandix_plus', 'general');
 		}
 
-		m = new form.Map('bandix-plus', _('Bandix Plus'), _('Runtime options for openwrt-bandix-plus service.'));
+		m = new form.Map('bandix_plus', _('Bandix Plus'), _('Runtime options for openwrt-bandix-plus service.'));
 
 		s = m.section(form.NamedSection, 'general', 'bandix_plus', _('General'));
 		s.addremove = false;
-		s.description = _('This page edits /etc/config/bandix-plus general options.');
+		s.description = _('This page edits /etc/config/bandix_plus general options.');
 
 		o = s.option(form.Flag, 'enable_traffic', _('Enable traffic collection'), _('When disabled, bandix-plus service will not start.'));
 		o.default = '1';

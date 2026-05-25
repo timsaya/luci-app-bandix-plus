@@ -623,7 +623,7 @@ return view.extend({
 			return uci.load(pkg).catch(function () { return null; });
 		};
 		return Promise.all([
-			uci.load('bandix-plus'),
+			uci.load('bandix_plus'),
 			optionalLoad('luci'),
 			optionalLoad('argon'),
 			optionalLoad('kucat'),
@@ -1048,7 +1048,7 @@ return view.extend({
 		bar.className = 'bplus-status-bar' + (barCls ? ' ' + barCls : '');
 
 		var port = '';
-		try { port = uci.get('bandix-plus', 'general', 'port') || ''; } catch (e) {}
+		try { port = uci.get('bandix_plus', 'general', 'port') || ''; } catch (e) {}
 		if (!port) port = '8787';
 
 		function cell(label, valueText, valueCls) {
