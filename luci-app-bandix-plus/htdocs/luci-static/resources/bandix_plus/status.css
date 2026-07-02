@@ -871,21 +871,11 @@
 
 .bplus-page .overview-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 350px), 1fr));
   gap: 12px;
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-}
-
-/* 仅 1 张接口卡时占满一行 */
-.bplus-page .overview-grid > .overview-card:only-of-type {
-  grid-column: 1 / -1;
-}
-
-/* 每行最多 3 张；若最后一行只余 1 张（1、4、7… 张时最后一张），拉满该行 */
-.bplus-page .overview-grid:has(> .overview-card:nth-child(3n + 1):last-child) > .overview-card:nth-child(3n + 1):last-child {
-  grid-column: 1 / -1;
 }
 
 .bplus-page .overview-state {
@@ -917,6 +907,12 @@
   background: var(--bplus-card);
   display: grid;
   gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .bplus-page .overview-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* 使用 div 而非 header：LuCI 主题常给 <header> 加左侧色条；与 luci-app-bandix .device-card-header 一致 */
