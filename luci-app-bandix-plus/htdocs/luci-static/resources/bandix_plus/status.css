@@ -1028,17 +1028,11 @@
 
 .bplus-page .overview-hero-pair {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
   gap: 10px 12px;
   align-items: stretch;
   min-width: 0;
   width: 100%;
-}
-
-@media (max-width: 360px) {
-  .bplus-page .overview-hero-pair {
-    grid-template-columns: 1fr;
-  }
 }
 
 .bplus-page .overview-hero-speed {
@@ -2242,9 +2236,13 @@
   flex: 0 0 auto;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 768px) {
   .bplus-schedule-rate-pair {
     grid-template-columns: 1fr;
+  }
+
+  .bplus-schedule-form .bplus-rate-input-row .cbi-input-text {
+    max-width: none;
   }
 }
 
