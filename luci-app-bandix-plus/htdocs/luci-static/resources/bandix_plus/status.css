@@ -871,7 +871,7 @@
 
 .bplus-page .overview-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(350px, 1fr));
   gap: 12px;
   width: 100%;
   min-width: 0;
@@ -909,7 +909,7 @@
 }
 
 .bplus-page .overview-card {
-  min-width: 0;
+  min-width: min(100%, 350px);
   max-width: 100%;
   border: 1px solid var(--bplus-border);
   border-radius: 14px;
@@ -917,6 +917,30 @@
   background: var(--bplus-card);
   display: grid;
   gap: 12px;
+}
+
+@media (max-width: 1180px) {
+  .bplus-page .overview-grid {
+    grid-template-columns: repeat(2, minmax(350px, 1fr));
+  }
+
+  .bplus-page .overview-grid:has(> .overview-card:nth-child(3n + 1):last-child) > .overview-card:nth-child(3n + 1):last-child {
+    grid-column: auto;
+  }
+
+  .bplus-page .overview-grid:has(> .overview-card:nth-child(2n + 1):last-child) > .overview-card:nth-child(2n + 1):last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .bplus-page .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bplus-page .overview-card {
+    min-width: 0;
+  }
 }
 
 /* 使用 div 而非 header：LuCI 主题常给 <header> 加左侧色条；与 luci-app-bandix .device-card-header 一致 */
