@@ -1,11 +1,13 @@
 'use strict';
 'require view';
 'require form';
+'require ui';
 'require uci';
 'require rpc';
 'require tools.widgets as widgets';
 
 var callRestartService = rpc.declare({ object: 'luci.bandix_plus', method: 'restartService', expect: {} });
+var callPersistTraffic = rpc.declare({ object: 'luci.bandix_plus', method: 'persistTraffic', expect: {} });
 
 return view.extend({
 	load: function () {
@@ -87,6 +89,35 @@ return view.extend({
 		o = s.option(form.Flag, 'traffic_enable_storage', _('Enable traffic persistence storage'), _('Persist traffic histogram/ring data to disk. Disabled by default.'));
 		o.default = '0';
 		o.rmempty = false;
+
+		o = s.option(form.ListValue, 'traffic_flush_interval', _('Data Flush Interval'), _('Set the interval for flushing traffic data to disk.'));
+		o.value('60', _('1 minute'));
+		o.value('300', _('5 minutes'));
+		o.value('600', _('10 minutes'));
+		o.value('900', _('15 minutes'));
+		o.value('1800', _('30 minutes'));
+		o.value('3600', _('1 hour'));
+		o.value('7200', _('2 hours'));
+		o.value('43200', _('12 hours'));
+		o.value('86400', _('24 hours'));
+		o.default = '600';
+		o.rmempty = false;
+		o.depends('traffic_enable_storage', '1');
+
+		o = s.option(form.Button, '_persist_traffic', _('Save traffic data now'), _('Immediately ask bandix-plus to flush current traffic data to disk.'));
+		o.inputtitle = _('Save traffic data now');
+		o.inputstyle = 'apply';
+		o.depends('traffic_enable_storage', '1');
+		o.onclick = function () {
+			return callPersistTraffic().then(function (res) {
+				if (res && res.ok === false)
+					ui.addNotification(null, E('p', _('Failed to save traffic data: ') + (res.error || _('Unknown error'))), 'error');
+				else
+					ui.addNotification(null, E('p', _('Traffic data saved.')), 'info');
+			}).catch(function (err) {
+				ui.addNotification(null, E('p', _('Failed to save traffic data: ') + (err.message || err)), 'error');
+			});
+		};
 
 		o = s.option(form.Value, 'host', _('Host'));
 		o.placeholder = '127.0.0.1';

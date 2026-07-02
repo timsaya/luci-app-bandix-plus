@@ -21,6 +21,39 @@ bplus_post_json() {
 	curl -s -g --connect-timeout 2 --max-time 20 -X POST -H "Content-Type: application/json" -d "$1" "$2"
 }
 
+bplus_post_json_checked() {
+	local body="$1"
+	local url="$2"
+	local tmp="/tmp/luci-bandix-plus-curl.$$"
+	local code
+	local resp
+
+	code="$(curl -s -g --connect-timeout 2 --max-time 20 -X POST -H "Content-Type: application/json" -d "$body" -o "$tmp" -w "%{http_code}" "$url")"
+	resp="$(cat "$tmp" 2>/dev/null)"
+	rm -f "$tmp"
+
+	case "$code" in
+		2??)
+			[ -n "$resp" ] && printf '%s' "$resp" || printf '%s\n' '{"ok":true,"data":null,"error":null}'
+		;;
+		404)
+			printf '%s\n' '{"ok":false,"data":null,"error":"backend does not support /api/traffic/persist"}'
+		;;
+		000)
+			printf '%s\n' '{"ok":false,"data":null,"error":"bandix-plus backend is not reachable"}'
+		;;
+		*)
+			json_init
+			json_add_boolean "ok" 0
+			json_add_string "data" "error"
+			json_add_string "error" "backend request failed with HTTP $code"
+			[ -n "$resp" ] && json_add_string "response" "$resp"
+			json_dump
+			json_cleanup
+		;;
+	esac
+}
+
 bplus_delete() {
 	curl -s -g --connect-timeout 2 --max-time 20 -X DELETE "$1"
 }
@@ -140,6 +173,8 @@ case "$1" in
 		json_add_object "getStatus"
 		json_close_object
 		json_add_object "restartService"
+		json_close_object
+		json_add_object "persistTraffic"
 		json_close_object
 		json_dump
 		json_cleanup
@@ -502,6 +537,9 @@ case "$1" in
 			restartService)
 				( sleep 1; /etc/init.d/bandix-plus restart ) >/dev/null 2>&1 &
 				json_init; json_add_string ok "1"; json_dump; json_cleanup
+				;;
+			persistTraffic)
+				bplus_post_json_checked '{}' "$BASE/api/traffic/persist"
 				;;
 		esac
 		;;
