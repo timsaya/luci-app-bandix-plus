@@ -50,7 +50,8 @@
 					"addGuestWhitelist",
 					"removeGuestWhitelist",
 					"setDeviceHostname",
-					"restartService"
+					"restartService",
+					"persistTraffic"
 				]
 			},
 			"uci": [ "bandix_plus" ]
