@@ -350,8 +350,8 @@ msgstr "分段加载中，请稍候...（%d/%d）"
 msgid "Runtime options for openwrt-bandix-plus service."
 msgstr "openwrt-bandix-plus 服务的运行时选项。"
 
-msgid "This page edits /etc/config/bandix-plus general options."
-msgstr "本页编辑 /etc/config/bandix-plus 的 general 段。"
+msgid "This page edits /etc/config/bandix_plus general options."
+msgstr "本页编辑 /etc/config/bandix_plus 的 general 段。"
 
 msgid "Enable traffic collection"
 msgstr "启用流量采集"
@@ -394,6 +394,21 @@ msgstr "关闭"
 
 msgid "Delete"
 msgstr "删除"
+
+msgid "Delete this device, its traffic data, and its rate-limit configurations?"
+msgstr "确定删除此设备、设备流量数据及对应的限速配置吗？"
+
+msgid "Delete device"
+msgstr "删除设备"
+
+msgid "Deleting..."
+msgstr "正在删除..."
+
+msgid "This device is online and may be discovered again."
+msgstr "此设备当前在线，之后可能会被重新发现。"
+
+msgid "Failed to delete device"
+msgstr "删除设备失败"
 
 msgid "Edit"
 msgstr "编辑"

@@ -372,8 +372,8 @@ msgstr "Chargement par sections, veuillez patienter... (%d/%d)"
 msgid "Runtime options for openwrt-bandix-plus service."
 msgstr "Options d'exécution pour le service openwrt-bandix-plus."
 
-msgid "This page edits /etc/config/bandix-plus general options."
-msgstr "Cette page édite la section générale de /etc/config/bandix-plus."
+msgid "This page edits /etc/config/bandix_plus general options."
+msgstr "Cette page édite la section générale de /etc/config/bandix_plus."
 
 msgid "Enable traffic collection"
 msgstr "Activer la collecte du trafic"

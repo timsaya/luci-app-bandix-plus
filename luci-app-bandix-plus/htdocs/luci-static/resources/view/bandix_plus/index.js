@@ -20,6 +20,13 @@ var callGetDevices = rpc.declare({
 	expect: {}
 });
 
+var callDeleteDevice = rpc.declare({
+	object: 'luci.bandix_plus',
+	method: 'deleteDevice',
+	params: [ 'iface', 'mac' ],
+	expect: {}
+});
+
 var callGetTrend = rpc.declare({
 	object: 'luci.bandix_plus',
 	method: 'getTrend',
@@ -63,7 +70,6 @@ var callAddGuestWhitelist = rpc.declare({ object: 'luci.bandix_plus', method: 'a
 var callRemoveGuestWhitelist = rpc.declare({ object: 'luci.bandix_plus', method: 'removeGuestWhitelist', params: [ 'payload' ], expect: {} });
 var callGetVersion = rpc.declare({ object: 'luci.bandix_plus', method: 'getVersion', expect: {} });
 var callGetStatus = rpc.declare({ object: 'luci.bandix_plus', method: 'getStatus', expect: {} });
-var callRestartService = rpc.declare({ object: 'luci.bandix_plus', method: 'restartService', expect: {} });
 
 function bplusJson(r) {
 	if (r == null) return null;
@@ -586,20 +592,6 @@ function ensureLayoutCss() {
 		'.bplus-page .bplus-trend-toolbar .cbi-input-select,.bplus-page .bplus-device-toolbar .cbi-input-select{min-width:6em;}',
 		'.bplus-page .bplus-section{margin-top:1.25rem;}',
 		'.bplus-page .bplus-section>h3{margin:0 0 12px 0;font-size:1.1rem;font-weight:600;}',
-		/* status banner */
-		'.bplus-page .bplus-status-bar{display:flex;flex-wrap:wrap;align-items:stretch;gap:12px;padding:12px 16px;border-radius:12px;border:1px solid var(--bplus-border,#d1d5db);background:var(--bplus-bg,#fff);margin-bottom:14px;}',
-		'.bplus-page .bplus-status-bar.is-down{border-color:#ef4444;background:rgba(239,68,68,0.08);}',
-		'.bplus-page .bplus-status-bar.is-warn{border-color:#f59e0b;background:rgba(245,158,11,0.08);}',
-		'.bplus-page .bplus-status-bar.is-disabled{border-color:#9ca3af;background:rgba(156,163,175,0.10);}',
-		'.bplus-page .bplus-status-cell{flex:1 1 140px;min-width:120px;display:flex;flex-direction:column;gap:2px;padding:0 8px;border-left:1px solid var(--bplus-border,#e5e7eb);}',
-		'.bplus-page .bplus-status-cell:first-child{border-left:0;padding-left:0;}',
-		'.bplus-page .bplus-status-cell .bplus-status-label{font-size:.78rem;opacity:.6;text-transform:uppercase;letter-spacing:.04em;}',
-		'.bplus-page .bplus-status-cell .bplus-status-value{font-size:1rem;font-weight:600;word-break:break-all;}',
-		'.bplus-page .bplus-status-cell .bplus-status-value.is-up{color:#16a34a;}',
-		'.bplus-page .bplus-status-cell .bplus-status-value.is-down{color:#dc2626;}',
-		'.bplus-page .bplus-status-cell .bplus-status-value.is-warn{color:#d97706;}',
-		'.bplus-page .bplus-status-cell .bplus-status-value.is-muted{color:#6b7280;}',
-		'.bplus-page .bplus-status-actions{display:flex;align-items:center;gap:8px;margin-left:auto;padding-left:8px;border-left:1px solid var(--bplus-border,#e5e7eb);}',
 		'.bplus-page .bplus-status-down-notice{padding:18px 16px;border-radius:12px;border:1px dashed var(--bplus-border,#d1d5db);background:var(--bplus-bg,#fff);text-align:center;color:#6b7280;}'
 	].join('');
 	document.head.appendChild(st);
@@ -611,7 +603,7 @@ function ensureCss() {
 			'id': 'bplus-status-css',
 			'rel': 'stylesheet',
 			'type': 'text/css',
-			'href': L.resource('bandix_plus/status.css', '?v=50')
+			'href': L.resource('bandix_plus/status.css', '?v=51')
 		}));
 	}
 	ensureLayoutCss();
@@ -654,6 +646,9 @@ return view.extend({
 		this.scheduleEditingId = null;
 		this.scheduleHubDevice = null;
 		this.pendingDeleteScheduleId = null;
+		this.pendingDeleteDevice = null;
+		this.pendingDeleteDeviceButton = null;
+		this.deviceDeleteBusy = false;
 		this.overview = [];
 		this.devices = [];
 		this.trend = [];
@@ -667,6 +662,11 @@ return view.extend({
 		/* luci-app-bandix historyHover: pause trend poll while pointer on chart (desktop). */
 		this.trendChartPauseRefresh = false;
 		this.statsHoverIndex = null;
+		/* luci-app-bandix Traffic Timeline: enable wheel zoom after a short hover. */
+		this.statsZoomEnabled = false;
+		this.statsZoomScale = 1;
+		this.statsZoomOffsetX = 0;
+		this.statsZoomTimer = null;
 		this.rate = {
 			schedules: [],
 			ifaceLimits: [],
@@ -1016,66 +1016,11 @@ return view.extend({
 		btn.disabled = !!busy;
 	},
 
-	renderStatusBar: function (st) {
-		var bar = this.el && this.el.statusBar;
-		if (!bar) return;
+	applyServiceStatus: function (st) {
 		st = st || {};
-		var enabled = String(st.enabled) === '1';
 		var running = String(st.running) === '1';
 		var et = String(st.enable_traffic) === '1';
 		var apiOk = String(st.api_health_ok) === '1';
-		var pid = String(st.pid || '');
-
-		var stateLabel, stateCls, barCls;
-		if (!et) {
-			stateLabel = _('Disabled');
-			stateCls = 'is-muted';
-			barCls = 'is-disabled';
-		} else if (running && apiOk) {
-			stateLabel = _('Running');
-			stateCls = 'is-up';
-			barCls = '';
-		} else if (running && !apiOk) {
-			stateLabel = _('API Unreachable');
-			stateCls = 'is-warn';
-			barCls = 'is-warn';
-		} else {
-			stateLabel = _('Stopped');
-			stateCls = 'is-down';
-			barCls = 'is-down';
-		}
-
-		bar.className = 'bplus-status-bar' + (barCls ? ' ' + barCls : '');
-
-		var port = '';
-		try { port = uci.get('bandix_plus', 'general', 'port') || ''; } catch (e) {}
-		if (!port) port = '8787';
-
-		function cell(label, valueText, valueCls) {
-			return E('div', { 'class': 'bplus-status-cell' }, [
-				E('div', { 'class': 'bplus-status-label' }, [ label ]),
-				E('div', { 'class': 'bplus-status-value' + (valueCls ? ' ' + valueCls : '') }, [ valueText ])
-			]);
-		}
-
-		var apiCell = cell(_('API'), apiOk ? _('OK') : _('Fail'), apiOk ? 'is-up' : 'is-down');
-		var pidCell = cell('PID', running && pid ? pid : '—', running ? 'is-up' : 'is-muted');
-		var stateCell = cell(_('State'), stateLabel, stateCls);
-		var enabledCell = cell(_('Auto-start'), enabled ? _('on') : _('off'), enabled ? 'is-up' : 'is-muted');
-		var versionCell = cell(_('Package'), st.bandix_plus_pkg || _('unknown'));
-		var portCell = cell(_('Port'), String(port));
-
-		var restartBtn = E('button', {
-			'type': 'button',
-			'class': 'btn cbi-button cbi-button-action'
-		}, [ _('Restart') ]);
-		restartBtn.addEventListener('click', L.bind(this.handleRestartClick, this));
-
-		var actions = E('div', { 'class': 'bplus-status-actions' }, [ restartBtn ]);
-
-		dom.content(bar, [
-			stateCell, pidCell, apiCell, portCell, enabledCell, versionCell, actions
-		]);
 
 		var down = !(et && running && apiOk);
 		if (this.el.statusDownNotice)
@@ -1084,33 +1029,15 @@ return view.extend({
 			this.el.mainSection.style.display = down ? 'none' : '';
 	},
 
-	handleRestartClick: function (ev) {
-		var btn = ev && ev.currentTarget;
-		this.setBusy(btn, true);
-		var self = this;
-		return callRestartService().then(bplusJson).then(function (r) {
-			if (!r || String(r.ok) !== '1') {
-				ui.addNotification(null, E('p', {}, [ _('Failed to restart bandix-plus') ]), 'error');
-			} else {
-				ui.addNotification(null, E('p', {}, [ _('bandix-plus restart requested') ]), 'info');
-			}
-		}).catch(function (e) {
-			self.notifyError(_('Failed to restart bandix-plus'), e);
-		}).finally(function () {
-			self.setBusy(btn, false);
-			return self.refreshServiceStatus();
-		});
-	},
-
 	refreshServiceStatus: function () {
 		var self = this;
 		return callGetStatus().then(bplusJson).then(function (st) {
 			self.serviceStatus = st || {};
-			self.renderStatusBar(self.serviceStatus);
+			self.applyServiceStatus(self.serviceStatus);
 			return self.serviceStatus;
 		}).catch(function () {
 			self.serviceStatus = { running: '0', api_health_ok: '0' };
-			self.renderStatusBar(self.serviceStatus);
+			self.applyServiceStatus(self.serviceStatus);
 		});
 	},
 
@@ -1140,11 +1067,12 @@ return view.extend({
 		n.style.display = '';
 	},
 
-		/** True while schedule hub or nested rule modal is visible — avoids tearing down tbody during poll refresh (lost click / ghost clicks). */
+		/** True while a device/schedule modal is visible — avoids tearing down tbody during poll refresh. */
 		isScheduleHubUiOpen: function () {
 			return !!(this.el.scheduleHubOverlay && this.el.scheduleHubOverlay.classList.contains('show'))
 				|| !!(this.el.scheduleRuleOverlay && this.el.scheduleRuleOverlay.classList.contains('show'))
-				|| !!(this.el.scheduleDeleteConfirmOverlay && this.el.scheduleDeleteConfirmOverlay.classList.contains('show'));
+				|| !!(this.el.scheduleDeleteConfirmOverlay && this.el.scheduleDeleteConfirmOverlay.classList.contains('show'))
+				|| !!(this.el.deviceDeleteConfirmOverlay && this.el.deviceDeleteConfirmOverlay.classList.contains('show'));
 		},
 
 		/** True while hovering device rule popover trigger/content; avoids repaint closing the hover popover. */
@@ -1164,6 +1092,83 @@ return view.extend({
 				return d;
 		}
 		return null;
+	},
+
+	deleteDevice: function (dev, button) {
+		if (!dev) return;
+		var iface = String(deviceIfaceName(dev) || '').trim();
+		var mac = String(dev.mac || '').trim();
+		if (!iface || !mac) {
+			this.notifyError(_('Iface and MAC are required'), null);
+			return;
+		}
+
+		this.pendingDeleteDevice = dev;
+		this.pendingDeleteDeviceButton = button || null;
+		var hostname = dev.hostname && dev.hostname !== '-' ? String(dev.hostname).trim() : '';
+		var target = (hostname ? hostname + ' · ' : '') + iface + ' · ' + mac;
+		this.el.deviceDeleteConfirmTarget.textContent = target;
+		this.el.deviceDeleteConfirmOnline.style.display = dev.online ? '' : 'none';
+		this.setDeviceDeleteLoading(false);
+		this.el.deviceDeleteConfirmOverlay.classList.add('show');
+		this.el.deviceDeleteConfirmOk.focus();
+	},
+
+	setDeviceDeleteLoading: function (busy) {
+		this.deviceDeleteBusy = !!busy;
+		this.setBusy(this.el.deviceDeleteConfirmCancel, busy);
+		this.setBusy(this.el.deviceDeleteConfirmOk, busy);
+		this.el.deviceDeleteConfirmOk.classList.toggle('is-loading', !!busy);
+		this.el.deviceDeleteConfirmOk.setAttribute('aria-busy', busy ? 'true' : 'false');
+		this.el.deviceDeleteConfirmLabel.textContent = busy ? _('Deleting...') : _('Delete');
+	},
+
+	hideDeviceDeleteConfirm: function (force) {
+		if (this.deviceDeleteBusy && !force) return;
+		var button = this.pendingDeleteDeviceButton;
+		this.el.deviceDeleteConfirmOverlay.classList.remove('show');
+		this.pendingDeleteDevice = null;
+		this.pendingDeleteDeviceButton = null;
+		if (button && document.documentElement.contains(button))
+			button.focus();
+	},
+
+	runDeleteDeviceConfirmed: function () {
+		var dev = this.pendingDeleteDevice;
+		var button = this.pendingDeleteDeviceButton;
+		if (!dev || this.deviceDeleteBusy) return;
+		var iface = String(deviceIfaceName(dev) || '').trim();
+		var mac = String(dev.mac || '').trim();
+
+		this.setBusy(button, true);
+		this.setDeviceDeleteLoading(true);
+		callDeleteDevice(iface, mac).then(bplusJson).then(L.bind(function (r) {
+			if (r && r.ok === false) throw new Error(r.error || 'delete failed');
+
+			var deletedKey = this.deviceRowKey(dev);
+			this.devices = this.devices.filter(L.bind(function (item) {
+				return this.deviceRowKey(item) !== deletedKey;
+			}, this));
+			if (this.selectedIface === iface && this.normalizeMacKey(this.selectedTrendMac) === this.normalizeMacKey(mac))
+				this.selectedTrendMac = '';
+			if (this.el.statsIface && this.el.statsIface.value === iface && this.el.statsMacSelect &&
+				this.normalizeMacKey(this.el.statsMacSelect.value) === this.normalizeMacKey(mac))
+				this.el.statsMacSelect.value = '';
+
+			return Promise.all([ this.refreshRateData(false), this.refreshLive(false) ]);
+		}, this)).then(L.bind(function () {
+			this.deviceDeleteBusy = false;
+			this.hideDeviceDeleteConfirm(true);
+			this.renderDevicesTable();
+			this.renderIfaceLimitTable();
+			this.renderGuestControlTable();
+			this.syncRateFormIfaceOptions();
+		}, this)).catch(L.bind(function (e) {
+			this.notifyError(_('Failed to delete device'), e);
+		}, this)).then(L.bind(function () {
+			this.setDeviceDeleteLoading(false);
+			this.setBusy(button, false);
+		}, this));
 	},
 
 	todayScheduleDayNumber: function () {
@@ -1887,7 +1892,14 @@ return view.extend({
 						'class': 'btn cbi-button cbi-button-action bplus-device-settings-btn',
 						'data-bplus-mac': d.mac || '',
 						'data-bplus-iface': deviceIfaceName(d) || ''
-					}, [ _('Settings') ])
+					}, [ _('Settings') ]),
+					' ',
+					E('button', {
+						'type': 'button',
+						'class': 'btn cbi-button cbi-button-remove bplus-device-delete-btn',
+						'data-bplus-mac': d.mac || '',
+						'data-bplus-iface': deviceIfaceName(d) || ''
+					}, [ _('Delete') ])
 				])
 			]);
 			body.appendChild(tr);
@@ -3062,7 +3074,7 @@ return view.extend({
 	drawStatsChart: function () {
 		var canvas = this.el.statsCanvas;
 		if (!canvas) return;
-		var data = this.histogram || [];
+		var originalData = this.histogram || [];
 		var dpr = window.devicePixelRatio || 1;
 		var wrap = canvas.parentElement;
 		var w = Math.max(1, (wrap && wrap.offsetWidth) || 600);
@@ -3076,7 +3088,9 @@ return view.extend({
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.scale(dpr, dpr);
 		ctx.clearRect(0, 0, w, h);
-		if (!data.length) {
+		if (!originalData.length) {
+			canvas.__bars = [];
+			canvas.__statsPlot = null;
 			ctx.fillStyle = '#7a7a7a';
 			ctx.font = '12px sans-serif';
 			ctx.fillText(_('No statistics data'), 12, 20);
@@ -3087,14 +3101,27 @@ return view.extend({
 		var valsUp = [];
 		var valsDown = [];
 		var maxV = 1;
+		for (var oi = 0; oi < originalData.length; oi++) {
+			var originalRow = originalData[oi];
+			var originalTotal = sumUpBytes(originalRow) + sumDownBytes(originalRow);
+			if (originalTotal > maxV) maxV = originalTotal;
+		}
+
+		var totalLen = originalData.length;
+		var scale = Math.max(1, Math.min(10, this.statsZoomScale || 1));
+		this.statsZoomScale = scale;
+		var visibleLen = Math.max(1, Math.ceil(totalLen / scale));
+		var maxStart = Math.max(0, totalLen - visibleLen);
+		var displayStartIndex = Math.max(0, Math.min(maxStart, Math.floor(this.statsZoomOffsetX || 0)));
+		this.statsZoomOffsetX = displayStartIndex;
+		var data = originalData.slice(displayStartIndex, displayStartIndex + visibleLen);
+
 		for (var vi = 0; vi < data.length; vi++) {
 			var row0 = data[vi];
 			var u = sumUpBytes(row0);
 			var d = sumDownBytes(row0);
 			valsUp.push(u);
 			valsDown.push(d);
-			var tot = u + d;
-			if (tot > maxV) maxV = tot;
 		}
 
 		ctx.fillStyle = '#8a8a8a';
@@ -3110,6 +3137,13 @@ return view.extend({
 		if (pad.l + pad.r + minPlotW > w) pad.l = Math.max(40, w - pad.r - minPlotW);
 		var pw = w - pad.l - pad.r;
 		canvas.__statsPadL = pad.l;
+		canvas.__statsPlot = {
+			left: pad.l,
+			width: pw,
+			startIndex: displayStartIndex,
+			visibleLength: data.length,
+			totalLength: totalLen
+		};
 
 		ctx.strokeStyle = 'rgba(130,130,130,0.28)';
 		for (var gy = 0; gy <= 4; gy++) {
@@ -3160,7 +3194,7 @@ return view.extend({
 				ctx.strokeRect(pxStroke(bx), pxStroke(txY), px(bw), px(upH));
 			}
 
-			canvas.__bars.push({ x: bx, y: by, w: bw, h: totalH, index: b, value: totalV });
+			canvas.__bars.push({ x: bx, y: by, w: bw, h: totalH, index: displayStartIndex + b, value: totalV });
 		}
 
 		if (data.length) {
@@ -3260,8 +3294,53 @@ return view.extend({
 		tip.style.top = tooltipY + 'px';
 	},
 
+	handleStatsEnter: function () {
+		if (this.statsZoomTimer) clearTimeout(this.statsZoomTimer);
+		this.statsZoomTimer = setTimeout(L.bind(function () {
+			this.statsZoomEnabled = true;
+			this.statsZoomTimer = null;
+		}, this), 1000);
+	},
+
 	handleStatsLeave: function () {
+		if (this.statsZoomTimer) {
+			clearTimeout(this.statsZoomTimer);
+			this.statsZoomTimer = null;
+		}
+		var wasZoomed = this.statsZoomScale > 1 || this.statsZoomOffsetX > 0;
+		this.statsZoomEnabled = false;
+		this.statsZoomScale = 1;
+		this.statsZoomOffsetX = 0;
 		if (this.el.statsTooltip) this.el.statsTooltip.style.display = 'none';
+		if (wasZoomed) this.drawStatsChart();
+	},
+
+	handleStatsWheel: function (ev) {
+		if (!this.statsZoomEnabled) return;
+		var canvas = this.el.statsCanvas;
+		var plot = canvas && canvas.__statsPlot;
+		var totalLen = (this.histogram || []).length;
+		if (!canvas || !plot || totalLen < 2) return;
+
+		ev.preventDefault();
+		var oldScale = Math.max(1, Math.min(10, this.statsZoomScale || 1));
+		var newScale = ev.deltaY > 0 ? oldScale * 0.9 : oldScale * 1.1;
+		newScale = Math.max(1, Math.min(10, newScale));
+		if (Math.abs(newScale - oldScale) < 0.0001) return;
+
+		var rect = canvas.getBoundingClientRect();
+		var relativeX = plot.width > 0 ? ((ev.clientX - rect.left - plot.left) / plot.width) : 0.5;
+		relativeX = Math.max(0, Math.min(1, relativeX));
+		var oldVisibleLen = totalLen / oldScale;
+		var newVisibleLen = totalLen / newScale;
+		var cursorIndex = (this.statsZoomOffsetX || 0) + relativeX * oldVisibleLen;
+		var newOffset = cursorIndex - relativeX * newVisibleLen;
+
+		this.statsZoomScale = newScale;
+		this.statsZoomOffsetX = Math.max(0, Math.min(totalLen - newVisibleLen, newOffset));
+		this.statsHoverIndex = null;
+		if (this.el.statsTooltip) this.el.statsTooltip.style.display = 'none';
+		this.drawStatsChart();
 	},
 
 	queryStats: function () {
@@ -3297,6 +3376,13 @@ return view.extend({
 		}, this))
 			.then(L.bind(function (res) {
 				if (reqSeq !== this.statsReqSeq) return;
+				if (this.statsZoomTimer) {
+					clearTimeout(this.statsZoomTimer);
+					this.statsZoomTimer = null;
+				}
+				this.statsZoomEnabled = false;
+				this.statsZoomScale = 1;
+				this.statsZoomOffsetX = 0;
 				this.histogram = res || [];
 				this.drawStatsChart();
 				this.updateStatsHistogramSummary();
@@ -3557,6 +3643,14 @@ return view.extend({
 		}
 
 		this.el.deviceBody.addEventListener('click', L.bind(function (ev) {
+			var deleteBtn = ev.target.closest('.bplus-device-delete-btn');
+			if (deleteBtn && this.el.deviceBody.contains(deleteBtn)) {
+				ev.preventDefault();
+				var deleteDev = this.findDeviceForScheduleClick(deleteBtn.getAttribute('data-bplus-mac'), deleteBtn.getAttribute('data-bplus-iface'));
+				this.deleteDevice(deleteDev, deleteBtn);
+				return;
+			}
+
 			var btn = ev.target.closest('.bplus-device-settings-btn');
 			if (!btn || !this.el.deviceBody.contains(btn)) return;
 			ev.preventDefault();
@@ -3626,6 +3720,24 @@ return view.extend({
 		this.el.scheduleDeleteConfirmOk.addEventListener('click', L.bind(function (ev) {
 			ev.preventDefault();
 			this.runDeleteScheduleConfirmed();
+		}, this));
+		this.el.deviceDeleteConfirmCancel.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.hideDeviceDeleteConfirm(false);
+		}, this));
+		this.el.deviceDeleteConfirmOk.addEventListener('click', L.bind(function (ev) {
+			ev.preventDefault();
+			this.runDeleteDeviceConfirmed();
+		}, this));
+		this.el.deviceDeleteConfirmOverlay.addEventListener('click', L.bind(function (ev) {
+			if (ev.target === this.el.deviceDeleteConfirmOverlay)
+				this.hideDeviceDeleteConfirm(false);
+		}, this));
+		this.el.deviceDeleteConfirmOverlay.addEventListener('keydown', L.bind(function (ev) {
+			if (ev.key === 'Escape') {
+				ev.preventDefault();
+				this.hideDeviceDeleteConfirm(false);
+			}
 		}, this));
 		this.el.ifaceLimitForm.addEventListener('submit', L.bind(this.submitIfaceLimit, this));
 		this.el.ifaceLimitModalForm.addEventListener('submit', L.bind(this.submitIfaceLimitFromModal, this));
@@ -3728,8 +3840,10 @@ return view.extend({
 			});
 		});
 
+		this.el.statsCanvas.addEventListener('mouseenter', L.bind(this.handleStatsEnter, this));
 		this.el.statsCanvas.addEventListener('mousemove', L.bind(this.handleStatsMove, this));
 		this.el.statsCanvas.addEventListener('mouseleave', L.bind(this.handleStatsLeave, this));
+		this.el.statsCanvas.addEventListener('wheel', L.bind(this.handleStatsWheel, this), { passive: false });
 	},
 
 	buildView: function () {
@@ -3941,7 +4055,7 @@ return view.extend({
 			'class': 'cbi-button cbi-button-negative'
 		}, [ _('Delete') ]);
 		this.el.scheduleDeleteConfirmOverlay = E('div', {
-			'class': 'bandix-modal-overlay',
+			'class': 'bandix-modal-overlay bplus-confirm-overlay',
 			'id': 'bplus-schedule-delete-confirm',
 			'aria-modal': 'true'
 		}, [
@@ -3952,6 +4066,48 @@ return view.extend({
 					E('div', { 'class': 'confirm-dialog-footer' }, [
 						this.el.scheduleDeleteConfirmCancel,
 						this.el.scheduleDeleteConfirmOk
+					])
+				])
+			])
+		]);
+
+		this.el.deviceDeleteConfirmCancel = E('button', {
+			'type': 'button',
+			'class': 'cbi-button cbi-button-reset'
+		}, [ _('Cancel') ]);
+		this.el.deviceDeleteConfirmSpinner = E('span', {
+			'class': 'bplus-delete-spinner',
+			'aria-hidden': 'true'
+		});
+		this.el.deviceDeleteConfirmLabel = E('span', {}, [ _('Delete') ]);
+		this.el.deviceDeleteConfirmOk = E('button', {
+			'type': 'button',
+			'class': 'cbi-button cbi-button-negative bplus-device-delete-confirm-ok',
+			'aria-busy': 'false'
+		}, [ this.el.deviceDeleteConfirmSpinner, this.el.deviceDeleteConfirmLabel ]);
+		this.el.deviceDeleteConfirmTarget = E('div', { 'class': 'bplus-confirm-target' });
+		this.el.deviceDeleteConfirmOnline = E('div', {
+			'class': 'bplus-confirm-warning',
+			'style': 'display:none'
+		}, [ _('This device is online and may be discovered again.') ]);
+		this.el.deviceDeleteConfirmOverlay = E('div', {
+			'class': 'bandix-modal-overlay bplus-confirm-overlay',
+			'id': 'bplus-device-delete-confirm',
+			'aria-modal': 'true',
+			'role': 'dialog',
+			'aria-labelledby': 'bplus-device-delete-title'
+		}, [
+			E('div', { 'class': 'modal-content bandix-modal confirm-dialog' }, [
+				E('div', { 'class': 'bandix-modal-body' }, [
+					E('div', { 'class': 'confirm-dialog-title', 'id': 'bplus-device-delete-title' }, [ _('Delete device') ]),
+					E('div', { 'class': 'confirm-dialog-message' }, [
+						_('Delete this device, its traffic data, and its rate-limit configurations?')
+					]),
+					this.el.deviceDeleteConfirmTarget,
+					this.el.deviceDeleteConfirmOnline,
+					E('div', { 'class': 'confirm-dialog-footer' }, [
+						this.el.deviceDeleteConfirmCancel,
+						this.el.deviceDeleteConfirmOk
 					])
 				])
 			])
@@ -4203,8 +4359,6 @@ return view.extend({
 		this.el.trendTypeSelect.value = this.selectedTrendType;
 		this.el.statsLoadingNotice = E('div', { 'class': 'bplus-stats-loading-notice', 'style': 'display:none' }, []);
 
-		/* Service status banner (top of page) — populated by refreshServiceStatus(). */
-		this.el.statusBar = E('div', { 'class': 'bplus-status-bar' }, []);
 		this.el.statusDownNotice = E('div', {
 			'class': 'bplus-status-down-notice',
 			'style': 'display:none'
@@ -4384,7 +4538,6 @@ return view.extend({
 			]);
 
 		this.root = E('div', { 'class': 'bplus-page' }, [
-			this.el.statusBar,
 			this.el.statusDownNotice,
 			this.el.mainSection
 		]);
@@ -4403,6 +4556,8 @@ return view.extend({
 			this.root.appendChild(this.el.scheduleRuleOverlay);
 		if (this.el.scheduleDeleteConfirmOverlay && this.el.scheduleDeleteConfirmOverlay.parentNode !== this.root)
 			this.root.appendChild(this.el.scheduleDeleteConfirmOverlay);
+		if (this.el.deviceDeleteConfirmOverlay && this.el.deviceDeleteConfirmOverlay.parentNode !== this.root)
+			this.root.appendChild(this.el.deviceDeleteConfirmOverlay);
 		if (this.el.ifaceLimitOverlay && this.el.ifaceLimitOverlay.parentNode !== this.root)
 			this.root.appendChild(this.el.ifaceLimitOverlay);
 		if (this.el.guestRuleOverlay && this.el.guestRuleOverlay.parentNode !== this.root)

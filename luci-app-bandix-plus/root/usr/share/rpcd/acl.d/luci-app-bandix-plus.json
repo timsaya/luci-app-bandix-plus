@@ -39,6 +39,7 @@
 					"getGuestWhitelist",
 					"getVersion",
 					"getStatus",
+					"deleteDevice",
 					"createSchedule",
 					"updateSchedule",
 					"deleteSchedule",

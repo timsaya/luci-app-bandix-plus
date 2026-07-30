@@ -371,9 +371,9 @@ msgstr "Загрузка частями, подождите... (%d/%d)"
 msgid "Runtime options for openwrt-bandix-plus service."
 msgstr "Параметры времени выполнения службы openwrt-bandix-plus."
 
-msgid "This page edits /etc/config/bandix-plus general options."
+msgid "This page edits /etc/config/bandix_plus general options."
 msgstr ""
-"На этой странице редактируется общий раздел файла /etc/config/bandix-plus."
+"На этой странице редактируется общий раздел файла /etc/config/bandix_plus."
 
 msgid "Enable traffic collection"
 msgstr "Включить сбор трафика"

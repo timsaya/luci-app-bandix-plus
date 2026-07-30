@@ -363,8 +363,8 @@ msgstr "セクションをロードしています。お待ちください... (%
 msgid "Runtime options for openwrt-bandix-plus service."
 msgstr "openwrt-bandix-plus サービスのランタイム オプション。"
 
-msgid "This page edits /etc/config/bandix-plus general options."
-msgstr "このページは、/etc/config/bandix-plus の一般セクションを編集します。"
+msgid "This page edits /etc/config/bandix_plus general options."
+msgstr "このページは、/etc/config/bandix_plus の一般セクションを編集します。"
 
 msgid "Enable traffic collection"
 msgstr "トラフィック収集を有効にする"

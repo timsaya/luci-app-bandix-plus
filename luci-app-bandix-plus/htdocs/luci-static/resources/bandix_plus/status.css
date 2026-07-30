@@ -1908,8 +1908,8 @@
   z-index: 10060;
 }
 
-/* Schedule delete confirm — same structure/classes as luci-app-bandix confirm-dialog */
-#bplus-schedule-delete-confirm.bandix-modal-overlay {
+/* In-page delete confirmation dialogs — same structure/classes as luci-app-bandix confirm-dialog */
+.bplus-confirm-overlay.bandix-modal-overlay {
   position: fixed;
   inset: 0;
   display: flex;
@@ -1926,21 +1926,21 @@
   pointer-events: none;
 }
 
-#bplus-schedule-delete-confirm.bandix-modal-overlay.show {
+.bplus-confirm-overlay.bandix-modal-overlay.show {
   background-color: rgba(0, 0, 0, 0.5);
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
 }
 
-#bplus-schedule-delete-confirm .modal-content {
+.bplus-confirm-overlay .modal-content {
   max-width: 500px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
 }
 
-#bplus-schedule-delete-confirm .bandix-modal {
+.bplus-confirm-overlay .bandix-modal {
   opacity: 0;
   transition: opacity 0.2s ease;
   background-color: var(--bplus-bg) !important;
@@ -1948,36 +1948,86 @@
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
 
-#bplus-schedule-delete-confirm.bandix-modal-overlay.show .bandix-modal {
+.bplus-confirm-overlay.bandix-modal-overlay.show .bandix-modal {
   opacity: 1;
 }
 
-#bplus-schedule-delete-confirm .confirm-dialog {
+.bplus-confirm-overlay .confirm-dialog {
   max-width: 400px;
 }
 
-#bplus-schedule-delete-confirm .confirm-dialog .bandix-modal-body {
+.bplus-confirm-overlay .confirm-dialog .bandix-modal-body {
   padding: 24px;
 }
 
-#bplus-schedule-delete-confirm .confirm-dialog-title {
+.bplus-confirm-overlay .confirm-dialog-title {
   font-size: 1.125rem;
   font-weight: 600;
   margin-bottom: 12px;
   color: var(--bplus-text);
 }
 
-#bplus-schedule-delete-confirm .confirm-dialog-message {
+.bplus-confirm-overlay .confirm-dialog-message {
   font-size: 0.875rem;
   line-height: 1.5;
   margin-bottom: 20px;
   color: var(--bplus-sub);
 }
 
-#bplus-schedule-delete-confirm .confirm-dialog-footer {
+.bplus-confirm-overlay .confirm-dialog-footer {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+}
+
+.bplus-confirm-target {
+  margin: -6px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--bplus-border);
+  border-radius: 6px;
+  background: var(--bplus-card);
+  color: var(--bplus-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  word-break: break-all;
+}
+
+.bplus-confirm-warning {
+  margin: 0 0 18px;
+  padding: 9px 11px;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.bplus-device-delete-confirm-ok {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 7em;
+}
+
+.bplus-delete-spinner {
+  display: none;
+  width: 13px;
+  height: 13px;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+}
+
+.bplus-device-delete-confirm-ok.is-loading .bplus-delete-spinner {
+  display: inline-block;
+  animation: bplus-delete-spin 0.7s linear infinite;
+}
+
+@keyframes bplus-delete-spin {
+  to { transform: rotate(360deg); }
 }
 
 .bplus-schedule-hub-summary {

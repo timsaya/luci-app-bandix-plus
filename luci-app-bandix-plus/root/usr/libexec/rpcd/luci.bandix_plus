@@ -69,6 +69,10 @@ case "$1" in
 		json_add_string "iface"
 		json_add_string "period"
 		json_close_object
+		json_add_object "deleteDevice"
+		json_add_string "iface"
+		json_add_string "mac"
+		json_close_object
 		json_add_object "getTrend"
 		json_add_string "iface"
 		json_add_string "mac"
@@ -178,6 +182,27 @@ case "$1" in
 				[ -n "$pperiod" ] && qs="${qs}period=$(printf %s "$pperiod" | sed 's/ /%20/g')&"
 				qs="${qs#}"; qs="${qs%&}"
 				[ -n "$qs" ] && bplus_get "$BASE/api/devices?$qs" || bplus_get "$BASE/api/devices"
+				;;
+			deleteDevice)
+				input=""
+				read -r -t 5 input || true
+				iface="${3:-}"; mac="${4:-}"
+				if [ -n "$input" ]; then
+					[ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$.iface' 2>/dev/null)"
+					[ -z "$mac" ] && mac="$(echo "$input" | jsonfilter -e '$.mac' 2>/dev/null)"
+					[ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$[0]' 2>/dev/null)"
+					[ -z "$mac" ] && mac="$(echo "$input" | jsonfilter -e '$[1]' 2>/dev/null)"
+				fi
+				if [ -z "$iface" ] || [ -z "$mac" ]; then
+					printf '%s\n' '{"ok":false,"data":null,"error":"deleteDevice: iface and mac required"}'
+					exit 0
+				fi
+				json_init
+				json_add_string iface "$iface"
+				json_add_string mac "$mac"
+				js="$(json_dump)"
+				json_cleanup
+				bplus_delete_json "$js" "$BASE/api/devices"
 				;;
 			getTrend)
 				input=""
