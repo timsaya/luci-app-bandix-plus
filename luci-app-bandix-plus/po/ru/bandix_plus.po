@@ -624,3 +624,72 @@ msgstr "Необходимо заполнить имя хоста"
 
 msgid "Iface is required"
 msgstr "Нужно заполнить интерфейс"
+
+msgid "Feedback"
+msgstr "Обратная связь"
+
+msgid "Version"
+msgstr "Версия"
+
+msgid "Unknown"
+msgstr "Неизвестно"
+
+msgid "Restart Service"
+msgstr "Перезапустить службу"
+
+msgid "Restart Bandix Plus Service"
+msgstr "Перезапустить службу Bandix Plus"
+
+msgid "Are you sure you want to restart the Bandix Plus service?"
+msgstr "Вы уверены, что хотите перезапустить службу Bandix Plus?"
+
+msgid "Confirm"
+msgstr "Подтвердить"
+
+msgid "Failed to restart service: "
+msgstr "Не удалось перезапустить службу: "
+
+msgid "Check for Updates"
+msgstr "Проверить обновления"
+
+msgid "Checking..."
+msgstr "Проверка..."
+
+msgid "Failed to check for updates"
+msgstr "Не удалось проверить обновления"
+
+msgid "Failed to check LuCI App updates"
+msgstr "Не удалось проверить обновления приложения LuCI"
+
+msgid "LuCI App has update: "
+msgstr "Для приложения LuCI доступно обновление: "
+
+msgid "LuCI App is up to date: "
+msgstr "Приложение LuCI актуально: "
+
+msgid "Failed to check Bandix Plus updates"
+msgstr "Не удалось проверить обновления Bandix Plus"
+
+msgid "Bandix Plus has update: "
+msgstr "Для Bandix Plus доступно обновление: "
+
+msgid "Bandix Plus is up to date: "
+msgstr "Bandix Plus актуален: "
+
+msgid "Updates Available"
+msgstr "Доступны обновления"
+
+msgid "No Updates Available"
+msgstr "Нет доступных обновлений"
+
+msgid "Update Check Failed"
+msgstr "Не удалось проверить обновления"
+
+msgid "Manual Download"
+msgstr "Ручная загрузка"
+
+msgid "Update available"
+msgstr "Доступно обновление"
+
+msgid "Update available, click to go to settings"
+msgstr "Доступно обновление, нажмите, чтобы перейти к настройкам"

@@ -1,22 +1,37 @@
 'use strict';
 'require view';
 'require form';
+'require ui';
 'require uci';
 'require rpc';
 'require tools.widgets as widgets';
 
 var callRestartService = rpc.declare({ object: 'luci.bandix_plus', method: 'restartService', expect: {} });
+var callGetVersion = rpc.declare({ object: 'luci.bandix_plus', method: 'getVersion', expect: {} });
+var callCheckUpdate = rpc.declare({ object: 'luci.bandix_plus', method: 'checkUpdate', expect: {} });
 
 return view.extend({
 	load: function () {
+		var self = this;
 		return Promise.all([
 			uci.load('bandix_plus'),
-			uci.load('network')
+			uci.load('network'),
+			callGetVersion().then(function (result) {
+				self.versionInfo = result || {};
+				return result;
+			}).catch(function () {
+				self.versionInfo = {
+					luci_app_version: _('Unknown'),
+					bandix_plus_version: _('Unknown')
+				};
+				return null;
+			})
 		]);
 	},
 
 	render: function () {
 		var m, s, o;
+		var versionInfo = this.versionInfo || {};
 
 		if (!uci.get('bandix_plus', 'general')) {
 			uci.add('bandix_plus', 'bandix_plus', 'general');
@@ -103,6 +118,138 @@ return view.extend({
 		o.placeholder = '/usr/share/bandix-plus';
 		o.default = '/usr/share/bandix-plus';
 		o.rmempty = false;
+
+		o = s.option(form.DummyValue, 'version', _('Version'));
+		o.cfgvalue = function () {
+			var luciVersion = versionInfo.luci_app_version || _('Unknown');
+			var bandixPlusVersion = versionInfo.bandix_plus_version || versionInfo.bandix_plus_pkg || _('Unknown');
+			return 'luci-app-bandix-plus: ' + luciVersion + ' / bandix-plus: ' + bandixPlusVersion;
+		};
+
+		o = s.option(form.Button, 'check_update', _('Check for Updates'));
+		o.inputtitle = _('Check for Updates');
+		o.inputstyle = 'apply';
+		o.onclick = function () {
+			var button = this;
+			var originalTitle = button.inputtitle;
+			button.inputtitle = _('Checking...');
+			button.disabled = true;
+
+			return callCheckUpdate().then(function (result) {
+				button.inputtitle = originalTitle;
+				button.disabled = false;
+
+				if (!result) {
+					ui.addNotification(null, E('p', _('Failed to check for updates')), 'error');
+					return;
+				}
+
+				var messages = [];
+				var hasUpdate = false;
+				var hasError = false;
+
+				if (result.luci_error) {
+					hasError = true;
+					messages.push(E('p', { 'class': 'alert-message error' }, _('Failed to check LuCI App updates')));
+				}
+				else if (result.luci_has_update === true || result.luci_has_update === 1 || result.luci_has_update === '1') {
+					hasUpdate = true;
+					messages.push(E('p', { 'style': 'font-weight: 600;' },
+						_('LuCI App has update: ') + result.current_luci_version + ' → ' + result.latest_luci_version));
+					if (result.luci_release_body) {
+						messages.push(E('div', {
+							'style': 'white-space: pre-wrap; max-height: 240px; overflow-y: auto; padding: 10px; margin: 8px 0; background: rgba(0,0,0,0.05); border-radius: 4px;'
+						}, result.luci_release_body));
+					}
+					if (result.luci_update_url) {
+						messages.push(E('a', {
+							'href': result.luci_update_url,
+							'target': '_blank',
+							'rel': 'noopener noreferrer'
+						}, _('Manual Download')));
+					}
+				}
+				else {
+					messages.push(E('p', {}, _('LuCI App is up to date: ') +
+						(result.current_luci_version || result.latest_luci_version || _('Unknown'))));
+				}
+
+				if (result.bandix_plus_error) {
+					hasError = true;
+					messages.push(E('p', { 'class': 'alert-message error' }, _('Failed to check Bandix Plus updates')));
+				}
+				else if (result.bandix_plus_has_update === true || result.bandix_plus_has_update === 1 || result.bandix_plus_has_update === '1') {
+					hasUpdate = true;
+					messages.push(E('p', { 'style': 'font-weight: 600; margin-top: 16px;' },
+						_('Bandix Plus has update: ') + result.current_bandix_plus_version + ' → ' + result.latest_bandix_plus_version));
+					if (result.bandix_plus_release_body) {
+						messages.push(E('div', {
+							'style': 'white-space: pre-wrap; max-height: 240px; overflow-y: auto; padding: 10px; margin: 8px 0; background: rgba(0,0,0,0.05); border-radius: 4px;'
+						}, result.bandix_plus_release_body));
+					}
+					if (result.bandix_plus_update_url) {
+						messages.push(E('a', {
+							'href': result.bandix_plus_update_url,
+							'target': '_blank',
+							'rel': 'noopener noreferrer'
+						}, _('Manual Download')));
+					}
+				}
+				else {
+					messages.push(E('p', {}, _('Bandix Plus is up to date: ') +
+						(result.current_bandix_plus_version || result.latest_bandix_plus_version || _('Unknown'))));
+				}
+
+				messages.push(E('div', { 'class': 'right', 'style': 'margin-top: 16px;' }, [
+					E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Close'))
+				]));
+
+				var title = hasUpdate ? _('Updates Available') :
+					(hasError ? _('Update Check Failed') : _('No Updates Available'));
+				ui.showModal(title, messages);
+			}).catch(function (err) {
+				button.inputtitle = originalTitle;
+				button.disabled = false;
+				ui.addNotification(null, E('p', _('Failed to check for updates') + ': ' + err.message), 'error');
+			});
+		};
+
+		o = s.option(form.Button, 'restart_service', _('Restart Service'));
+		o.inputtitle = _('Restart Bandix Plus Service');
+		o.inputstyle = 'apply';
+		o.onclick = function () {
+			return ui.showModal(_('Restart Service'), [
+				E('p', _('Are you sure you want to restart the Bandix Plus service?')),
+				E('div', { 'class': 'right' }, [
+					E('button', {
+						'class': 'btn',
+						'click': ui.hideModal
+					}, _('Cancel')),
+					' ',
+					E('button', {
+						'class': 'btn cbi-button-action',
+						'click': function () {
+							ui.hideModal();
+							return callRestartService().then(function (result) {
+								if (result && result.success === false) {
+									ui.addNotification(null, E('p', _('Failed to restart service: ') + (result.error || _('Unknown'))), 'error');
+								}
+							}).catch(function (err) {
+								ui.addNotification(null, E('p', _('Failed to restart service: ') + err.message), 'error');
+							});
+						}
+					}, _('Confirm'))
+				])
+			]);
+		};
+
+		o = s.option(form.Button, 'feedback_info', _('Feedback'));
+		o.inputtitle = _('Feedback');
+		o.inputstyle = 'link';
+		o.onclick = function () {
+			window.open('https://github.com/timsaya', '_blank');
+			return false;
+		};
 
 		return m.render();
 	},

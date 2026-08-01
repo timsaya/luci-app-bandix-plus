@@ -17,6 +17,7 @@
 					"getGuestDefaults",
 					"getGuestWhitelist",
 					"getVersion",
+					"checkUpdate",
 					"getStatus"
 				]
 			},
@@ -38,6 +39,7 @@
 					"getGuestDefaults",
 					"getGuestWhitelist",
 					"getVersion",
+					"checkUpdate",
 					"getStatus",
 					"deleteDevice",
 					"createSchedule",

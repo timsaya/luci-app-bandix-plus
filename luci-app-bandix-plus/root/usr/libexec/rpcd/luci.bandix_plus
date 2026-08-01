@@ -55,6 +55,52 @@ bplus_unwrap_pair() {
 	fi
 }
 
+bplus_package_version() {
+	local package_name="$1"
+	local package_version=""
+	local apk_name=""
+
+	if command -v apk >/dev/null 2>&1; then
+		apk_name=$(apk list --installed "$package_name" 2>/dev/null | awk 'NR == 1 { print $1 }')
+		[ -n "$apk_name" ] && package_version="${apk_name#$package_name-}"
+	elif command -v opkg >/dev/null 2>&1; then
+		package_version=$(opkg status "$package_name" 2>/dev/null | awk '/^Version:/ { print $2; exit }')
+	fi
+
+	if [ -z "$package_version" ]; then
+		package_version=$(grep -h "^Version:" \
+			"/usr/lib/opkg/info/$package_name.control" \
+			"/usr/lib/info/$package_name.control" 2>/dev/null | awk 'NR == 1 { print $2 }')
+	fi
+
+	printf '%s' "$package_version"
+}
+
+bplus_core_version() {
+	local core_version
+	core_version=$(bplus_package_version bandix-plus)
+	if [ -z "$core_version" ] && command -v bandix-plus >/dev/null 2>&1; then
+		core_version=$(bandix-plus --version 2>/dev/null | awk 'NR == 1 { print $NF }')
+	fi
+	printf '%s' "$core_version"
+}
+
+bplus_version_is_newer() {
+	local current_version="${1#v}"
+	local latest_version="${2#v}"
+	local oldest_version
+
+	current_version="${current_version%%-r[0-9]*}"
+	latest_version="${latest_version%%-r[0-9]*}"
+	if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
+		return 1
+	fi
+	[ "$current_version" = "$latest_version" ] && return 1
+
+	oldest_version=$(printf '%s\n%s\n' "$current_version" "$latest_version" | sort -V | head -n 1)
+	[ "$oldest_version" = "$current_version" ]
+}
+
 case "$1" in
 	list)
 		json_init
@@ -140,6 +186,8 @@ case "$1" in
 		json_add_string "hostname"
 		json_close_object
 		json_add_object "getVersion"
+		json_close_object
+		json_add_object "checkUpdate"
 		json_close_object
 		json_add_object "getStatus"
 		json_close_object
@@ -438,25 +486,80 @@ case "$1" in
 				bplus_put_json "$js" "$BASE/api/devices/hostname"
 				;;
 			getVersion)
-				pkgv=""
-				if command -v apk >/dev/null 2>&1; then
-					apk_raw=$(apk list --installed "luci-app-bandix-plus" 2>/dev/null | awk '{print $1}')
-					if [ -n "$apk_raw" ]; then
-						# 移除前缀 "luci-app-bandix-plus-" 提取出真实版本号
-						pkgv="${apk_raw#luci-app-bandix-plus-}"
-					fi
-				elif command -v opkg >/dev/null 2>&1; then
-					pkgv=$(opkg status luci-app-bandix-plus 2>/dev/null | grep "^Version:" | cut -d' ' -f2)
-				fi
-				if [ -z "$pkgv" ]; then
-					pkgv=$(grep -h "^Version:" /lib/apk/db/installed /usr/lib/info/luci-app-bandix-plus.control /usr/lib/opkg/info/bandix-plus.control 2>/dev/null | head -n 1 | cut -d' ' -f2)
-				fi
+				luci_version=$(bplus_package_version luci-app-bandix-plus)
+				bandix_plus_version=$(bplus_core_version)
 
 				hb=$(bplus_get "$BASE/api/health")
 				api_ok=""; echo "$hb" | grep -q '"ok":true' && api_ok=1
 				json_init
-				json_add_string "bandix_plus_pkg" "${pkgv:-unknown}"
+				json_add_string "luci_app_version" "${luci_version:-Unknown}"
+				json_add_string "bandix_plus_version" "${bandix_plus_version:-Unknown}"
+				json_add_string "bandix_plus_pkg" "${luci_version:-unknown}"
 				json_add_string "api_health_ok" "${api_ok:-0}"
+				json_dump
+				json_cleanup
+				;;
+			checkUpdate)
+				current_luci_version=$(bplus_package_version luci-app-bandix-plus)
+				current_bandix_plus_version=$(bplus_core_version)
+
+				luci_api_result=$(curl -fsSL --connect-timeout 10 --max-time 30 \
+					-H "Accept: application/vnd.github+json" \
+					-H "User-Agent: luci-app-bandix-plus" \
+					"https://api.github.com/repos/timsaya/luci-app-bandix-plus/releases/latest" 2>/dev/null)
+				luci_api_status=$?
+				luci_latest_version=""
+				luci_update_url=""
+				luci_release_body=""
+				luci_error=""
+				luci_has_update=0
+				if [ "$luci_api_status" -eq 0 ] && [ -n "$luci_api_result" ]; then
+					luci_latest_version=$(echo "$luci_api_result" | jsonfilter -e '$.tag_name' 2>/dev/null)
+					luci_latest_version="${luci_latest_version#v}"
+					luci_update_url=$(echo "$luci_api_result" | jsonfilter -e '$.html_url' 2>/dev/null)
+					luci_release_body=$(echo "$luci_api_result" | jsonfilter -e '$.body' 2>/dev/null)
+				fi
+				if [ -z "$luci_latest_version" ]; then
+					luci_error="Failed to query the latest luci-app-bandix-plus release"
+				elif bplus_version_is_newer "$current_luci_version" "$luci_latest_version"; then
+					luci_has_update=1
+				fi
+
+				bandix_api_result=$(curl -fsSL --connect-timeout 10 --max-time 30 \
+					-H "Accept: application/vnd.github+json" \
+					-H "User-Agent: luci-app-bandix-plus" \
+					"https://api.github.com/repos/timsaya/openwrt-bandix-plus/releases/latest" 2>/dev/null)
+				bandix_api_status=$?
+				bandix_plus_latest_version=""
+				bandix_plus_update_url=""
+				bandix_plus_release_body=""
+				bandix_plus_error=""
+				bandix_plus_has_update=0
+				if [ "$bandix_api_status" -eq 0 ] && [ -n "$bandix_api_result" ]; then
+					bandix_plus_latest_version=$(echo "$bandix_api_result" | jsonfilter -e '$.tag_name' 2>/dev/null)
+					bandix_plus_latest_version="${bandix_plus_latest_version#v}"
+					bandix_plus_update_url=$(echo "$bandix_api_result" | jsonfilter -e '$.html_url' 2>/dev/null)
+					bandix_plus_release_body=$(echo "$bandix_api_result" | jsonfilter -e '$.body' 2>/dev/null)
+				fi
+				if [ -z "$bandix_plus_latest_version" ]; then
+					bandix_plus_error="Failed to query the latest openwrt-bandix-plus release"
+				elif bplus_version_is_newer "$current_bandix_plus_version" "$bandix_plus_latest_version"; then
+					bandix_plus_has_update=1
+				fi
+
+				json_init
+				json_add_string "current_luci_version" "${current_luci_version:-Unknown}"
+				json_add_string "current_bandix_plus_version" "${current_bandix_plus_version:-Unknown}"
+				json_add_string "latest_luci_version" "$luci_latest_version"
+				json_add_string "latest_bandix_plus_version" "$bandix_plus_latest_version"
+				json_add_boolean "luci_has_update" "$luci_has_update"
+				json_add_boolean "bandix_plus_has_update" "$bandix_plus_has_update"
+				json_add_string "luci_update_url" "$luci_update_url"
+				json_add_string "bandix_plus_update_url" "$bandix_plus_update_url"
+				json_add_string "luci_release_body" "$luci_release_body"
+				json_add_string "bandix_plus_release_body" "$bandix_plus_release_body"
+				json_add_string "luci_error" "$luci_error"
+				json_add_string "bandix_plus_error" "$bandix_plus_error"
 				json_dump
 				json_cleanup
 				;;
@@ -526,7 +629,7 @@ case "$1" in
 				;;
 			restartService)
 				( sleep 1; /etc/init.d/bandix-plus restart ) >/dev/null 2>&1 &
-				json_init; json_add_string ok "1"; json_dump; json_cleanup
+				json_init; json_add_string ok "1"; json_add_boolean success 1; json_dump; json_cleanup
 				;;
 		esac
 		;;

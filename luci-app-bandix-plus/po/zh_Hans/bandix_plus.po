@@ -613,3 +613,72 @@ msgstr "需要填写主机名"
 
 msgid "Iface is required"
 msgstr "需要填写接口"
+
+msgid "Feedback"
+msgstr "意见反馈"
+
+msgid "Version"
+msgstr "版本"
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "Restart Service"
+msgstr "重启服务"
+
+msgid "Restart Bandix Plus Service"
+msgstr "重启 Bandix Plus 服务"
+
+msgid "Are you sure you want to restart the Bandix Plus service?"
+msgstr "确定要重启 Bandix Plus 服务吗？"
+
+msgid "Confirm"
+msgstr "确认"
+
+msgid "Failed to restart service: "
+msgstr "重启服务失败："
+
+msgid "Check for Updates"
+msgstr "检查更新"
+
+msgid "Checking..."
+msgstr "检查中..."
+
+msgid "Failed to check for updates"
+msgstr "检查更新失败"
+
+msgid "Failed to check LuCI App updates"
+msgstr "检查 LuCI 应用更新失败"
+
+msgid "LuCI App has update: "
+msgstr "LuCI 应用有更新："
+
+msgid "LuCI App is up to date: "
+msgstr "LuCI 应用已是最新版本："
+
+msgid "Failed to check Bandix Plus updates"
+msgstr "检查 Bandix Plus 更新失败"
+
+msgid "Bandix Plus has update: "
+msgstr "Bandix Plus 有更新："
+
+msgid "Bandix Plus is up to date: "
+msgstr "Bandix Plus 已是最新版本："
+
+msgid "Updates Available"
+msgstr "有可用更新"
+
+msgid "No Updates Available"
+msgstr "无可用更新"
+
+msgid "Update Check Failed"
+msgstr "更新检查失败"
+
+msgid "Manual Download"
+msgstr "手动下载"
+
+msgid "Update available"
+msgstr "有更新"
+
+msgid "Update available, click to go to settings"
+msgstr "有更新，点击前往设置"

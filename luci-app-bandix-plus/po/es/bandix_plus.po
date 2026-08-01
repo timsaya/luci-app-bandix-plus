@@ -623,3 +623,72 @@ msgstr "Necesita completar el nombre del host"
 
 msgid "Iface is required"
 msgstr "Necesito completar la interfaz."
+
+msgid "Feedback"
+msgstr "Comentarios"
+
+msgid "Version"
+msgstr "Versión"
+
+msgid "Unknown"
+msgstr "Desconocido"
+
+msgid "Restart Service"
+msgstr "Reiniciar servicio"
+
+msgid "Restart Bandix Plus Service"
+msgstr "Reiniciar servicio Bandix Plus"
+
+msgid "Are you sure you want to restart the Bandix Plus service?"
+msgstr "¿Está seguro de que desea reiniciar el servicio Bandix Plus?"
+
+msgid "Confirm"
+msgstr "Confirmar"
+
+msgid "Failed to restart service: "
+msgstr "Error al reiniciar el servicio: "
+
+msgid "Check for Updates"
+msgstr "Buscar actualizaciones"
+
+msgid "Checking..."
+msgstr "Verificando..."
+
+msgid "Failed to check for updates"
+msgstr "Error al verificar actualizaciones"
+
+msgid "Failed to check LuCI App updates"
+msgstr "Error al verificar las actualizaciones de la aplicación LuCI"
+
+msgid "LuCI App has update: "
+msgstr "La aplicación LuCI tiene una actualización: "
+
+msgid "LuCI App is up to date: "
+msgstr "La aplicación LuCI está actualizada: "
+
+msgid "Failed to check Bandix Plus updates"
+msgstr "Error al verificar las actualizaciones de Bandix Plus"
+
+msgid "Bandix Plus has update: "
+msgstr "Bandix Plus tiene una actualización: "
+
+msgid "Bandix Plus is up to date: "
+msgstr "Bandix Plus está actualizado: "
+
+msgid "Updates Available"
+msgstr "Actualizaciones disponibles"
+
+msgid "No Updates Available"
+msgstr "No hay actualizaciones disponibles"
+
+msgid "Update Check Failed"
+msgstr "Error al buscar actualizaciones"
+
+msgid "Manual Download"
+msgstr "Descarga manual"
+
+msgid "Update available"
+msgstr "Actualización disponible"
+
+msgid "Update available, click to go to settings"
+msgstr "Actualización disponible, haga clic para ir a la configuración"

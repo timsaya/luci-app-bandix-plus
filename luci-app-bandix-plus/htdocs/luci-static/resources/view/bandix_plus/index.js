@@ -69,6 +69,7 @@ var callGetGuestWhitelist = rpc.declare({ object: 'luci.bandix_plus', method: 'g
 var callAddGuestWhitelist = rpc.declare({ object: 'luci.bandix_plus', method: 'addGuestWhitelist', params: [ 'payload' ], expect: {} });
 var callRemoveGuestWhitelist = rpc.declare({ object: 'luci.bandix_plus', method: 'removeGuestWhitelist', params: [ 'payload' ], expect: {} });
 var callGetVersion = rpc.declare({ object: 'luci.bandix_plus', method: 'getVersion', expect: {} });
+var callCheckUpdate = rpc.declare({ object: 'luci.bandix_plus', method: 'checkUpdate', expect: {} });
 var callGetStatus = rpc.declare({ object: 'luci.bandix_plus', method: 'getStatus', expect: {} });
 
 function bplusJson(r) {
@@ -586,6 +587,9 @@ function ensureLayoutCss() {
 		'.bplus-page .bplus-title-wrapper{display:flex;align-items:baseline;flex-wrap:wrap;gap:12px 20px;}',
 		'.bplus-page .bplus-title{font-size:1.5rem;font-weight:600;margin:0;line-height:1.2;}',
 		'.bplus-page .bplus-version{font-size:0.875rem;opacity:0.55;font-weight:400;}',
+		'.bplus-page .bplus-overview-title{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 12px;min-width:0;}',
+		'.bplus-page .bplus-update-badge{display:none;cursor:pointer;padding:2px 8px;background:rgba(239,68,68,0.1);color:#ef4444;border-radius:4px;font-size:0.75rem;font-weight:600;transition:all 0.2s ease;}',
+		'.bplus-page .bplus-update-badge:hover{background:rgba(239,68,68,0.2);transform:translateY(-1px);}',
 		'.bplus-page .bplus-section-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:0 0 12px 0;min-width:0;}',
 		'.bplus-page .bplus-section-head .bplus-panel-title{margin:0;font-size:1.1rem;font-weight:600;flex:1 1 auto;min-width:0;}',
 		'.bplus-page .bplus-trend-toolbar,.bplus-page .bplus-device-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;justify-content:flex-end;}',
@@ -629,7 +633,7 @@ return view.extend({
 	addFooter: function () { return null; },
 
 	initState: function (load) {
-		this.version = load && load[1] ? load[1] : {};
+		this.version = load && load[4] ? load[4] : {};
 		this.period = localStorage.getItem('bplus_period') || 'all';
 		this.rateUnitMode = localStorage.getItem('bplus_rate_unit') === 'bit' ? 'bit' : 'byte';
 		setRateUnitMode(this.rateUnitMode);
@@ -3795,7 +3799,7 @@ return view.extend({
 
 		this.el.statsQuery.addEventListener('click', L.bind(this.queryStats, this));
 		this.el.statsReset.addEventListener('click', L.bind(function () {
-			this.applyStatsPreset('1year', true);
+			this.applyStatsPreset('today', true);
 		}, this));
 		this.el.statsStart.addEventListener('change', L.bind(this.updateStatsHistogramTimeline, this));
 		this.el.statsEnd.addEventListener('change', L.bind(this.updateStatsHistogramTimeline, this));
@@ -3819,7 +3823,7 @@ return view.extend({
 
 		this.el.rankQuery.addEventListener('click', L.bind(this.queryUsageRanking, this));
 		this.el.rankReset.addEventListener('click', L.bind(function () {
-			this.applyRankPreset('1year', true);
+			this.applyRankPreset('today', true);
 		}, this));
 		this.el.rankStart.addEventListener('change', L.bind(this.updateRankTimeline, this));
 		this.el.rankEnd.addEventListener('change', L.bind(this.updateRankTimeline, this));
@@ -4351,10 +4355,9 @@ return view.extend({
 
 		var nowWall = new Date();
 		var todayCal = new Date(nowWall.getFullYear(), nowWall.getMonth(), nowWall.getDate());
-		var from30 = new Date(todayCal.getTime() - 29 * 86400000);
-		this.el.rankStart.value = formatDateInput(from30);
+		this.el.rankStart.value = formatDateInput(todayCal);
 		this.el.rankEnd.value = formatDateInput(todayCal);
-		this.el.statsStart.value = formatDateInput(from30);
+		this.el.statsStart.value = formatDateInput(todayCal);
 		this.el.statsEnd.value = formatDateInput(todayCal);
 		this.el.trendTypeSelect.value = this.selectedTrendType;
 		this.el.statsLoadingNotice = E('div', { 'class': 'bplus-stats-loading-notice', 'style': 'display:none' }, []);
@@ -4363,10 +4366,26 @@ return view.extend({
 			'class': 'bplus-status-down-notice',
 			'style': 'display:none'
 		}, [ _('bandix-plus is not running. Charts and tables are hidden until the service is up.') ]);
+		var luciVersion = this.version.luci_app_version || _('Unknown');
+		var bandixPlusVersion = this.version.bandix_plus_version || this.version.bandix_plus_pkg || _('Unknown');
+		this.el.versionInfo = E('span', { 'class': 'bplus-version' }, [
+			'luci-app-bandix-plus: ' + luciVersion + ' / bandix-plus: ' + bandixPlusVersion
+		]);
+		this.el.updateBadge = E('span', {
+			'class': 'bplus-update-badge',
+			'title': _('Update available, click to go to settings'),
+			'click': function () {
+				window.location.href = L.url('admin/network/bandix_plus/settings');
+			}
+		}, [ _('Update available') ]);
 		this.el.mainSection = E('div', { 'class': 'bplus-main' }, [
 				E('section', { 'class': 'bplus-panel' }, [
 					E('div', { 'class': 'bplus-panel-head' }, [
-						E('h2', [ _('Interface Overview') ]),
+						E('div', { 'class': 'bplus-overview-title' }, [
+							E('h2', [ _('Interface Overview') ]),
+							this.el.versionInfo,
+							this.el.updateBadge
+						]),
 						E('div', { 'class': 'bplus-overview-head-tools' }, [
 							this.el.rateUnitToggle
 						])
@@ -4578,8 +4597,21 @@ return view.extend({
 			if (this.el.rankIface && this.el.rankIface.value) this.queryUsageRanking();
 		}, this));
 		this.refreshRateData(false);
-		this.applyRankPreset('1year');
-		this.applyStatsPreset('1year');
+		this.applyRankPreset('today');
+		this.applyStatsPreset('today');
+
+		setTimeout(L.bind(function () {
+			callCheckUpdate().then(bplusJson).then(L.bind(function (result) {
+				if (!result || !this.el.updateBadge) return;
+				var hasLuciUpdate = result.luci_has_update === true ||
+					result.luci_has_update === 1 || result.luci_has_update === '1';
+				var hasCoreUpdate = result.bandix_plus_has_update === true ||
+					result.bandix_plus_has_update === 1 || result.bandix_plus_has_update === '1';
+				this.el.updateBadge.style.display = hasLuciUpdate || hasCoreUpdate ? 'inline-block' : 'none';
+			}, this)).catch(function (err) {
+				console.debug('Failed to check Bandix Plus updates:', err);
+			});
+		}, this), 500);
 
 			poll.add(L.bind(function () {
 				this.setThemeClass();

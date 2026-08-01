@@ -624,3 +624,72 @@ msgstr "Besoin de remplir le nom d'hôte"
 
 msgid "Iface is required"
 msgstr "Besoin de remplir l'interface"
+
+msgid "Feedback"
+msgstr "Commentaires"
+
+msgid "Version"
+msgstr "Version"
+
+msgid "Unknown"
+msgstr "Inconnu"
+
+msgid "Restart Service"
+msgstr "Redémarrer le service"
+
+msgid "Restart Bandix Plus Service"
+msgstr "Redémarrer le service Bandix Plus"
+
+msgid "Are you sure you want to restart the Bandix Plus service?"
+msgstr "Êtes-vous sûr de vouloir redémarrer le service Bandix Plus ?"
+
+msgid "Confirm"
+msgstr "Confirmer"
+
+msgid "Failed to restart service: "
+msgstr "Échec du redémarrage du service : "
+
+msgid "Check for Updates"
+msgstr "Rechercher des mises à jour"
+
+msgid "Checking..."
+msgstr "Vérification..."
+
+msgid "Failed to check for updates"
+msgstr "Échec de la vérification des mises à jour"
+
+msgid "Failed to check LuCI App updates"
+msgstr "Échec de la vérification des mises à jour de l'application LuCI"
+
+msgid "LuCI App has update: "
+msgstr "L'application LuCI a une mise à jour : "
+
+msgid "LuCI App is up to date: "
+msgstr "L'application LuCI est à jour : "
+
+msgid "Failed to check Bandix Plus updates"
+msgstr "Échec de la vérification des mises à jour de Bandix Plus"
+
+msgid "Bandix Plus has update: "
+msgstr "Bandix Plus a une mise à jour : "
+
+msgid "Bandix Plus is up to date: "
+msgstr "Bandix Plus est à jour : "
+
+msgid "Updates Available"
+msgstr "Mises à jour disponibles"
+
+msgid "No Updates Available"
+msgstr "Aucune mise à jour disponible"
+
+msgid "Update Check Failed"
+msgstr "Échec de la vérification des mises à jour"
+
+msgid "Manual Download"
+msgstr "Téléchargement manuel"
+
+msgid "Update available"
+msgstr "Mise à jour disponible"
+
+msgid "Update available, click to go to settings"
+msgstr "Mise à jour disponible, cliquez pour accéder aux paramètres"

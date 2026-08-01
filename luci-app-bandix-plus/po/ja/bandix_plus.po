@@ -611,3 +611,72 @@ msgstr "ホスト名を入力する必要があります"
 
 msgid "Iface is required"
 msgstr "インターフェースに記入する必要があります"
+
+msgid "Feedback"
+msgstr "フィードバック"
+
+msgid "Version"
+msgstr "バージョン"
+
+msgid "Unknown"
+msgstr "不明"
+
+msgid "Restart Service"
+msgstr "サービス再起動"
+
+msgid "Restart Bandix Plus Service"
+msgstr "Bandix Plus サービスを再起動"
+
+msgid "Are you sure you want to restart the Bandix Plus service?"
+msgstr "Bandix Plus サービスを再起動してもよろしいですか？"
+
+msgid "Confirm"
+msgstr "確認"
+
+msgid "Failed to restart service: "
+msgstr "サービスの再起動に失敗しました："
+
+msgid "Check for Updates"
+msgstr "更新を確認"
+
+msgid "Checking..."
+msgstr "確認中..."
+
+msgid "Failed to check for updates"
+msgstr "更新の確認に失敗しました"
+
+msgid "Failed to check LuCI App updates"
+msgstr "LuCI アプリの更新確認に失敗しました"
+
+msgid "LuCI App has update: "
+msgstr "LuCI アプリに更新があります："
+
+msgid "LuCI App is up to date: "
+msgstr "LuCI アプリは最新です："
+
+msgid "Failed to check Bandix Plus updates"
+msgstr "Bandix Plus の更新確認に失敗しました"
+
+msgid "Bandix Plus has update: "
+msgstr "Bandix Plus に更新があります："
+
+msgid "Bandix Plus is up to date: "
+msgstr "Bandix Plus は最新です："
+
+msgid "Updates Available"
+msgstr "利用可能な更新"
+
+msgid "No Updates Available"
+msgstr "利用可能な更新なし"
+
+msgid "Update Check Failed"
+msgstr "更新の確認に失敗しました"
+
+msgid "Manual Download"
+msgstr "手動ダウンロード"
+
+msgid "Update available"
+msgstr "更新あり"
+
+msgid "Update available, click to go to settings"
+msgstr "更新があります。クリックして設定を開きます"
