@@ -380,7 +380,7 @@ msgstr "Habilitar la recopilación de tráfico"
 msgid "When disabled, bandix-plus service will not start."
 msgstr "El servicio bandix-plus no se inicia cuando se cierra."
 
-msgid "Interfaces"
+msgid "Interface to monitor"
 msgstr "Interfaz de monitoreo"
 
 msgid "Select one or more interfaces to monitor."

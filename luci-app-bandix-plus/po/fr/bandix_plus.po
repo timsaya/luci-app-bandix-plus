@@ -381,7 +381,7 @@ msgstr "Activer la collecte du trafic"
 msgid "When disabled, bandix-plus service will not start."
 msgstr "Le service bandix-plus ne démarre pas à l'arrêt."
 
-msgid "Interfaces"
+msgid "Interface to monitor"
 msgstr "Interface de surveillance"
 
 msgid "Select one or more interfaces to monitor."

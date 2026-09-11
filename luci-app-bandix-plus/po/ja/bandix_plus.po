@@ -372,7 +372,7 @@ msgstr "トラフィック収集を有効にする"
 msgid "When disabled, bandix-plus service will not start."
 msgstr "シャットダウンすると、bandix-plus サービスが開始されません。"
 
-msgid "Interfaces"
+msgid "Interface to monitor"
 msgstr "監視インターフェース"
 
 msgid "Select one or more interfaces to monitor."

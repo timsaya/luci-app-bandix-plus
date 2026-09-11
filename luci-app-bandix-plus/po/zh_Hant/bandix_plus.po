@@ -359,7 +359,7 @@ msgstr "啓用流量採集"
 msgid "When disabled, bandix-plus service will not start."
 msgstr "關閉時 bandix-plus 服務不會啓動。"
 
-msgid "Interfaces"
+msgid "Interface to monitor"
 msgstr "監控接口"
 
 msgid "Select one or more interfaces to monitor."

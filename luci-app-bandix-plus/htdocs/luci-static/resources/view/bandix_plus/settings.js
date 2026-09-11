@@ -47,7 +47,7 @@ return view.extend({
 		o.default = '1';
 		o.rmempty = false;
 
-		o = s.option(widgets.DeviceSelect, 'iface', _('Interfaces'), _('Select one or more interfaces to monitor.'));
+		o = s.option(widgets.DeviceSelect, 'iface', _('Interface to monitor'), _('Select one or more interfaces to monitor.'));
 		o.multiple = true;
 		o.noaliases = true;
 		o.nobridges = false;

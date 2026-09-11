@@ -375,7 +375,7 @@ msgstr "Włącz zbieranie ruchu"
 msgid "When disabled, bandix-plus service will not start."
 msgstr "Po wyłączeniu usługa Bandix-plus nie zostanie uruchomiona."
 
-msgid "Interfaces"
+msgid "Interface to monitor"
 msgstr "Interfejsy"
 
 msgid "Select one or more interfaces to monitor."
