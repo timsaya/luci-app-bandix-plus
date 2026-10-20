@@ -769,6 +769,7 @@ return view.extend({
 		this.devicesRefreshKey = '';
 		this.devicesRefreshPromise = null;
 		this.devicesRefreshPromiseKey = '';
+		this.devicesRenderPending = false;
 		this.devicesLastError = null;
 	},
 
@@ -1423,7 +1424,30 @@ return view.extend({
 			this.devicesRefreshKey = deviceKey;
 			this.devicesRefreshAtMs = now;
 
-			var pending = fetchAllDevices(devIface, p);
+			var pending = fetchAllDevices(devIface, p).then(L.bind(function (devices) {
+				// 切换接口或周期后，旧请求不能覆盖当前设备缓存。
+				if (this.devicesRefreshPromise !== pending)
+					return this.devices;
+
+				// 在标记缓存有效之前保存数据，不等待本轮总览请求完成。
+				this.devices = devices.map(function (d) {
+					if (!d || typeof d !== 'object')
+						return d;
+
+					if (!d.logical_iface) {
+						var iface = deviceIfaceName(d);
+
+						if (iface)
+							d.logical_iface = iface;
+					}
+
+					return d;
+				});
+
+				this.devicesLastError = null;
+				this.devicesRenderPending = true;
+				return this.devices;
+			}, this));
 
 			this.devicesRefreshPromise = pending;
 			this.devicesRefreshPromiseKey = deviceKey;
@@ -1462,6 +1486,10 @@ return view.extend({
 			}),
 
 			devicesPromise.catch(function (e) {
+				// 过期刷新不再修改错误状态或弹出提示。
+				if (reqSeq !== self.liveReqSeq)
+					return self.devices;
+
 				var message = e.message || String(e);
 				self.liveRefreshError = message;
 
@@ -1484,27 +1512,6 @@ return view.extend({
 
 			this.overview = res[0] || [];
 
-			// 只有实际完成设备列表请求时才替换设备缓存。
-			if (refreshDevices) {
-				var rawDevices = Array.isArray(res[1]) ? res[1] : [];
-
-				this.devices = rawDevices.map(function (d) {
-					if (!d || typeof d !== 'object')
-						return d;
-
-					if (!d.logical_iface) {
-						var iface = deviceIfaceName(d);
-
-						if (iface)
-							d.logical_iface = iface;
-					}
-
-					return d;
-				});
-
-				this.devicesLastError = null;
-			}
-
 			if (!this.selectedIface && this.overview.length) {
 				this.selectedIface = this.overview[0].ifname;
 			}
@@ -1526,8 +1533,8 @@ return view.extend({
 			this.renderIfaceOptions();
 			this.renderOverviewGrid();
 
-			// 设备相关的下拉选项和表格只在设备数据刷新后更新。
-			if (refreshDevices) {
+			// 即使发起请求的那轮刷新已过期，最新一轮也要显示新缓存。
+			if (refreshDevices || this.devicesRenderPending) {
 				this.renderDevicesIfaceFilterOptions();
 				this.renderTrendDeviceOptions();
 				this.renderStatsIfaceOptions();
@@ -1542,6 +1549,8 @@ return view.extend({
 
 					this.syncRateFormIfaceOptions();
 				}
+
+				this.devicesRenderPending = false;
 			}
 
 			if (this.el.overviewCount) {
