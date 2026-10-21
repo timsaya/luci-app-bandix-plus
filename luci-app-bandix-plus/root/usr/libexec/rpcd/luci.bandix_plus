@@ -13,6 +13,51 @@ bplus_get() {
 	curl -s -g --connect-timeout 2 --max-time 15 -X GET "$1"
 }
 
+# 设备列表 RPC 响应安全上限。
+# ubus 单条消息上限约为 1 MiB；这里将原始 JSON 限制在 256 KiB，
+# 为 rpcd 转换成带类型和对齐的 BLOB 预留充足余量。
+BPLUS_MAX_DEVICE_RESPONSE_BYTES=262144
+bplus_get_devices_bounded() {
+	local url="$1"
+	local tmp
+	local size
+
+	tmp="$(mktemp /tmp/bplus-devices.XXXXXX 2>/dev/null)" || {
+		printf '%s\n' \
+			'{"ok":false,"data":[],"error":"getDevices: cannot create temporary file"}'
+		return 0
+	}
+
+	# 先写入临时文件，不允许 curl 将完整响应直接输出给 rpcd。
+	if ! curl -sS -g \
+		--connect-timeout 2 \
+		--max-time 15 \
+		-X GET "$url" \
+		-o "$tmp"; then
+		rm -f "$tmp"
+		printf '%s\n' \
+			'{"ok":false,"data":[],"error":"getDevices: API request failed"}'
+		return 0
+	fi
+
+	size="$(wc -c < "$tmp" | tr -d '[:space:]')"
+
+	case "$size" in
+		''|*[!0-9]*) size=0 ;;
+	esac
+
+	if [ "$size" -gt "$BPLUS_MAX_DEVICE_RESPONSE_BYTES" ]; then
+		rm -f "$tmp"
+		printf '%s\n' \
+			'{"ok":false,"data":[],"error":"getDevices: response exceeds 256 KiB; check backend pagination"}'
+		return 0
+	fi
+
+	cat "$tmp"
+	rm -f "$tmp"
+	return 0
+}
+
 bplus_put_json() {
 	curl -s -g --connect-timeout 2 --max-time 20 -X PUT -H "Content-Type: application/json" -d "$1" "$2"
 }
@@ -114,6 +159,8 @@ case "$1" in
 		json_add_object "getDevices"
 		json_add_string "iface"
 		json_add_string "period"
+		json_add_string "offset"
+		json_add_string "limit"
 		json_close_object
 		json_add_object "deleteDevice"
 		json_add_string "iface"
@@ -218,18 +265,73 @@ case "$1" in
 			getDevices)
 				input=""
 				read -t 1 -r input || true
-				iface="${3:-}"; pperiod="${4:-}"
+
+				iface="${3:-}"
+				pperiod="${4:-}"
+				offset="${5:-}"
+				limit="${6:-}"
+
 				if [ -n "$input" ]; then
-					[ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$.iface' 2>/dev/null)"
-					[ -z "$pperiod" ] && pperiod="$(echo "$input" | jsonfilter -e '$.period' 2>/dev/null)"
-					[ -z "$iface" ] && iface="$(echo "$input" | jsonfilter -e '$[0]' 2>/dev/null)"
-					[ -z "$pperiod" ] && pperiod="$(echo "$input" | jsonfilter -e '$[1]' 2>/dev/null)"
+					[ -z "$iface" ] && \
+						iface="$(echo "$input" | jsonfilter -e '$.iface' 2>/dev/null)"
+
+					[ -z "$pperiod" ] && \
+						pperiod="$(echo "$input" | jsonfilter -e '$.period' 2>/dev/null)"
+
+					[ -z "$offset" ] && \
+						offset="$(echo "$input" | jsonfilter -e '$.offset' 2>/dev/null)"
+
+					[ -z "$limit" ] && \
+						limit="$(echo "$input" | jsonfilter -e '$.limit' 2>/dev/null)"
+
+					# 兼容位置参数形式。
+					[ -z "$iface" ] && \
+						iface="$(echo "$input" | jsonfilter -e '$[0]' 2>/dev/null)"
+
+					[ -z "$pperiod" ] && \
+						pperiod="$(echo "$input" | jsonfilter -e '$[1]' 2>/dev/null)"
+
+					[ -z "$offset" ] && \
+						offset="$(echo "$input" | jsonfilter -e '$[2]' 2>/dev/null)"
+
+					[ -z "$limit" ] && \
+						limit="$(echo "$input" | jsonfilter -e '$[3]' 2>/dev/null)"
 				fi
+
+				# offset 和 limit 只能是非负十进制整数。
+				case "$offset" in
+					'' ) offset=0 ;;
+					*[!0-9]* )
+						printf '%s\n' \
+							'{"ok":false,"data":[],"error":"getDevices: invalid offset"}'
+						exit 0
+						;;
+				esac
+
+				case "$limit" in
+					'' ) limit=100 ;;
+					*[!0-9]* )
+						printf '%s\n' \
+							'{"ok":false,"data":[],"error":"getDevices: invalid limit"}'
+						exit 0
+						;;
+				esac
+
+				# 避免无意义地请求 0 条，具体上限仍由 Rust API 限制。
+				[ "$limit" -eq 0 ] 2>/dev/null && limit=100
+
 				qs=""
-				[ -n "$iface" ] && qs="${qs}iface=$(printf %s "$iface" | sed 's/ /%20/g')&"
-				[ -n "$pperiod" ] && qs="${qs}period=$(printf %s "$pperiod" | sed 's/ /%20/g')&"
-				qs="${qs#}"; qs="${qs%&}"
-				[ -n "$qs" ] && bplus_get "$BASE/api/devices?$qs" || bplus_get "$BASE/api/devices"
+
+				[ -n "$iface" ] && \
+					qs="${qs}iface=$(printf %s "$iface" | sed 's/ /%20/g')&"
+
+				[ -n "$pperiod" ] && \
+					qs="${qs}period=$(printf %s "$pperiod" | sed 's/ /%20/g')&"
+
+				qs="${qs}offset=${offset}&limit=${limit}"
+				qs="${qs%&}"
+
+				bplus_get_devices_bounded "$BASE/api/devices?$qs"
 				;;
 			deleteDevice)
 				input=""

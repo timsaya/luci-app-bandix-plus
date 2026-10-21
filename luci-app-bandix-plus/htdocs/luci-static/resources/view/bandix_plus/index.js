@@ -16,7 +16,7 @@ var callGetOverview = rpc.declare({
 var callGetDevices = rpc.declare({
 	object: 'luci.bandix_plus',
 	method: 'getDevices',
-	params: [ 'iface', 'period' ],
+	params: [ 'iface', 'period', 'offset', 'limit' ],
 	expect: {}
 });
 
@@ -93,6 +93,84 @@ function unwrapData(r, fallback) {
 	}
 	if (z.data == null) return fallback;
 	return z.data;
+}
+
+var BPLUS_DEVICE_PAGE_SIZE = 100;
+var BPLUS_DEVICE_MAX_COUNT = 50000;
+/**
+ * 分页读取完整设备列表。
+ *
+ * 每次 getDevices 最多请求 100 条：
+ * - 不允许后端返回超过请求页大小的数据；
+ * - 检测旧后端忽略 offset/limit 的情况；
+ * - 限制一次加载的设备总量，避免异常情况下持续请求。
+ */
+function fetchAllDevices(iface, period) {
+	var offset = 0;
+	var allDevices = [];
+	var previousPageSignature = null;
+
+	function fetchPage() {
+		return callGetDevices(
+			iface || '',
+			period || '',
+			String(offset),
+			String(BPLUS_DEVICE_PAGE_SIZE)
+		).then(function (response) {
+			return unwrapData(response, []);
+		}).then(function (page) {
+			if (!Array.isArray(page)) {
+				throw new Error('getDevices returned an invalid page');
+			}
+
+			// 如果后端忽略 limit 并返回整份列表，在这里终止。
+			if (page.length > BPLUS_DEVICE_PAGE_SIZE) {
+				throw new Error(
+					'Backend does not support device pagination; update bandix-plus'
+				);
+			}
+
+			// 检测旧后端忽略 offset，反复返回相同页面的情况。
+			var signature = page.map(function (device) {
+				return deviceIfaceName(device) + '|' +
+					String(device && device.mac || '');
+			}).join('\n');
+
+			if (offset > 0 && page.length > 0 &&
+				signature === previousPageSignature) {
+				throw new Error(
+					'Backend ignored device pagination offset; update bandix-plus'
+				);
+			}
+
+			previousPageSignature = signature;
+
+			if (allDevices.length + page.length > BPLUS_DEVICE_MAX_COUNT) {
+				throw new Error(
+					'Device list exceeded the 50000-record safety limit'
+				);
+			}
+
+			allDevices = allDevices.concat(page);
+
+			// 不足一页表示已到末尾。
+			if (page.length < BPLUS_DEVICE_PAGE_SIZE) {
+				return allDevices;
+			}
+
+			offset += page.length;
+
+			if (offset >= BPLUS_DEVICE_MAX_COUNT) {
+				throw new Error(
+					'Device list reached the 50000-record safety limit'
+				);
+			}
+
+			return fetchPage();
+		});
+	}
+
+	return fetchPage();
 }
 
 function asNum(v) {
@@ -685,6 +763,14 @@ return view.extend({
 		this.liveReqSeq = 0;
 		this.trendReqSeq = 0;
 		this.statsReqSeq = 0;
+
+		// 设备列表单独缓存，避免每秒重复获取所有历史设备。
+		this.devicesRefreshAtMs = 0;
+		this.devicesRefreshKey = '';
+		this.devicesRefreshPromise = null;
+		this.devicesRefreshPromiseKey = '';
+		this.devicesRenderPending = false;
+		this.devicesLastError = null;
 	},
 
 	setThemeClass: function () {
@@ -1303,73 +1389,187 @@ return view.extend({
 		return true;
 	},
 
-		refreshLive: function (showErr) {
-			var self = this;
-			var reqSeq = ++this.liveReqSeq;
-			var p = this.applyPeriod(this.period);
-			var devIface = this.devicesFilterIface || '';
-			this.overviewError = null;
-			this.liveRefreshError = null;
+	refreshLive: function (showErr) {
+		var self = this;
+		var reqSeq = ++this.liveReqSeq;
+		var p = this.applyPeriod(this.period);
+		var devIface = this.devicesFilterIface || '';
+		var deviceKey = devIface + '\u0001' + (p || '');
+		var now = Date.now();
+
+		var refreshDevices = false;
+		var devicesPromise;
+
+		this.overviewError = null;
+		this.liveRefreshError = null;
+
+		/*
+		* 接口总览仍按原有频率刷新。
+		* 设备列表则最多每 5 秒重新获取一次；
+		* 同一设备列表请求尚未完成时，其他轮询共享该 Promise。
+		*/
+		if (this.devicesRefreshPromise &&
+			this.devicesRefreshPromiseKey === deviceKey) {
+
+			refreshDevices = true;
+			devicesPromise = this.devicesRefreshPromise;
+
+		} else if (
+			showErr ||
+			this.devicesRefreshKey !== deviceKey ||
+			now - this.devicesRefreshAtMs >= 5000
+		) {
+			refreshDevices = true;
+
+			this.devicesRefreshKey = deviceKey;
+			this.devicesRefreshAtMs = now;
+
+			var pending = fetchAllDevices(devIface, p).then(L.bind(function (devices) {
+				// 切换接口或周期后，旧请求不能覆盖当前设备缓存。
+				if (this.devicesRefreshPromise !== pending)
+					return this.devices;
+
+				// 在标记缓存有效之前保存数据，不等待本轮总览请求完成。
+				this.devices = devices.map(function (d) {
+					if (!d || typeof d !== 'object')
+						return d;
+
+					if (!d.logical_iface) {
+						var iface = deviceIfaceName(d);
+
+						if (iface)
+							d.logical_iface = iface;
+					}
+
+					return d;
+				});
+
+				this.devicesLastError = null;
+				this.devicesRenderPending = true;
+				return this.devices;
+			}, this));
+
+			this.devicesRefreshPromise = pending;
+			this.devicesRefreshPromiseKey = deviceKey;
+
+			// 成功、失败都解除 in-flight 状态，并设置下一次刷新时间。
+			pending.then(
+				L.bind(function () {
+					if (this.devicesRefreshPromise === pending) {
+						this.devicesRefreshPromise = null;
+						this.devicesRefreshPromiseKey = '';
+						this.devicesRefreshAtMs = Date.now();
+					}
+				}, this),
+				L.bind(function () {
+					if (this.devicesRefreshPromise === pending) {
+						this.devicesRefreshPromise = null;
+						this.devicesRefreshPromiseKey = '';
+						this.devicesRefreshAtMs = Date.now();
+					}
+				}, this)
+			);
+
+			devicesPromise = pending;
+
+		} else {
+			// 设备数据还在 5 秒缓存期内，不再调用 getDevices。
+			devicesPromise = Promise.resolve(this.devices);
+		}
+
 		return Promise.all([
-			callGetOverview(p).then(function (r) { return unwrapData(r, []); }).catch(function (e) {
+			callGetOverview(p).then(function (r) {
+				return unwrapData(r, []);
+			}).catch(function (e) {
 				self.overviewError = e.message || String(e);
 				return [];
 			}),
-			callGetDevices(devIface, p).then(function (r) { return unwrapData(r, []); }).catch(function (e) {
-				self.liveRefreshError = e.message || String(e);
-				return [];
-			})
-			]).then(L.bind(function (res) {
-				if (reqSeq !== this.liveReqSeq) return;
-				this.overview = res[0] || [];
-				var rawDevices = Array.isArray(res[1]) ? res[1] : [];
-				this.devices = rawDevices.map(function (d) {
-				if (!d || typeof d !== 'object') return d;
-				if (!d.logical_iface) {
-					var iface = deviceIfaceName(d);
-					if (iface) d.logical_iface = iface;
+
+			devicesPromise.catch(function (e) {
+				// 过期刷新不再修改错误状态或弹出提示。
+				if (reqSeq !== self.liveReqSeq)
+					return self.devices;
+
+				var message = e.message || String(e);
+				self.liveRefreshError = message;
+
+				console.warn('Failed to refresh Bandix Plus device list:', e);
+
+				// 相同错误只提示一次；用户主动刷新时仍然提示。
+				if (showErr || self.devicesLastError !== message) {
+					self.notifyError(_('Failed to refresh device list'), e);
 				}
-				return d;
-			});
+
+				self.devicesLastError = message;
+
+				// 出错时保留上次成功取得的设备数据。
+				return self.devices;
+			})
+		]).then(L.bind(function (res) {
+			// 丢弃已被较新一轮刷新取代的结果。
+			if (reqSeq !== this.liveReqSeq)
+				return;
+
+			this.overview = res[0] || [];
 
 			if (!this.selectedIface && this.overview.length) {
 				this.selectedIface = this.overview[0].ifname;
 			}
+
 			if (this.selectedIface && this.overview.length) {
 				var has = false;
+
 				for (var i = 0; i < this.overview.length; i++) {
 					if (this.overview[i].ifname === this.selectedIface) {
 						has = true;
 						break;
 					}
 				}
-				if (!has) this.selectedIface = this.overview[0].ifname;
+
+				if (!has)
+					this.selectedIface = this.overview[0].ifname;
 			}
 
-				this.renderIfaceOptions();
+			this.renderIfaceOptions();
+			this.renderOverviewGrid();
+
+			// 即使发起请求的那轮刷新已过期，最新一轮也要显示新缓存。
+			if (refreshDevices || this.devicesRenderPending) {
 				this.renderDevicesIfaceFilterOptions();
 				this.renderTrendDeviceOptions();
 				this.renderStatsIfaceOptions();
 				this.renderStatsMacOptions();
-				this.renderOverviewGrid();
-			if (!this.isScheduleHubUiOpen()) {
-				if (this.isDeviceRulePopoverHovered()) {
-					this.updateDevicesTableMetricsOnly();
-				} else {
-					this.renderDevicesTable();
+
+				if (!this.isScheduleHubUiOpen()) {
+					if (this.isDeviceRulePopoverHovered()) {
+						this.updateDevicesTableMetricsOnly();
+					} else {
+						this.renderDevicesTable();
+					}
+
+					this.syncRateFormIfaceOptions();
 				}
-				this.syncRateFormIfaceOptions();
+
+				this.devicesRenderPending = false;
 			}
+
 			if (this.el.overviewCount) {
-				this.el.overviewCount.textContent = String(this.overview.length) + ' ' + _('entries');
+				this.el.overviewCount.textContent =
+					String(this.overview.length) + ' ' + _('entries');
 			}
+
+			// 趋势图继续按现有逻辑刷新，不影响历史趋势查询。
 			return this.refreshTrend(false);
-			}, this)).catch(L.bind(function (e) {
-				if (reqSeq !== this.liveReqSeq) return;
-				this.liveRefreshError = e.message || String(e);
-				if (showErr) this.notifyError(_('Failed to refresh status'), e);
-			}, this));
-		},
+		}, this)).catch(L.bind(function (e) {
+			if (reqSeq !== this.liveReqSeq)
+				return;
+
+			this.liveRefreshError = e.message || String(e);
+
+			if (showErr)
+				this.notifyError(_('Failed to refresh status'), e);
+		}, this));
+	},
 
 	trendPointByteRates: function (x) {
 		var tt = String(this.selectedTrendType || '').trim();
